@@ -1,24 +1,25 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AvisoDeErro } from '@/components/aviso-de-erro';
 import { Botao } from '@/components/botao';
 import { CampoTexto } from '@/components/campo-texto';
 import { SeletorDeUnidade } from '@/components/seletor-de-unidade';
 import { cores } from '@/constants/tema';
-import { aplicarErrosDaApi } from '@/lib/erros-de-formulario';
+import { CONFIRA_OS_CAMPOS, distribuirErroDaApi } from '@/lib/erros-de-formulario';
 import { ROTULO_UNIDADE, UNIDADES } from '@/lib/unidades';
 import { insumoSchema, type CamposDoInsumo, type DadosDoInsumo } from '@/schemas/insumo';
 
-const CAMPOS = [
+const CAMPOS: readonly string[] = [
   'nome',
   'unidadeCompra',
   'quantidadeEmbalagem',
   'precoEmbalagem',
   'aproveitamentoPercentual',
-] as const;
+];
 
 export const INSUMO_EM_BRANCO: CamposDoInsumo = {
   nome: '',
@@ -49,7 +50,21 @@ export function FormularioDeInsumo({
   // desatualizada; este componente fica fora da otimização automática.
   'use no memo';
 
-  const [erroGeral, setErroGeral] = useState<string | null>(null);
+  // Guardado como objeto para o efeito abaixo disparar mesmo quando o texto se repete.
+  const [erroGeral, setErroGeral] = useState<{ mensagem: string } | null>(null);
+  const rolagem = useRef<ScrollView>(null);
+  const margens = useSafeAreaInsets();
+
+  // O aviso fica no topo: rola até ele, para a falha nunca ficar fora da tela.
+  useEffect(() => {
+    if (erroGeral) {
+      rolagem.current?.scrollTo({ y: 0, animated: true });
+    }
+  }, [erroGeral]);
+
+  function avisar(mensagem: string) {
+    setErroGeral({ mensagem });
+  }
 
   const { control, handleSubmit, setError, formState } = useForm({
     resolver: zodResolver(insumoSchema),
@@ -57,24 +72,29 @@ export function FormularioDeInsumo({
   });
   const unidade = useWatch({ control, name: 'unidadeCompra' });
 
-  const enviar = handleSubmit(async (dados) => {
-    setErroGeral(null);
-    try {
-      await onSalvar(dados);
-    } catch (erro) {
-      if (!aplicarErrosDaApi(erro, setError, CAMPOS)) {
-        setErroGeral((erro as Error).message);
+  const enviar = handleSubmit(
+    async (dados) => {
+      setErroGeral(null);
+      try {
+        await onSalvar(dados);
+      } catch (erro) {
+        avisar(distribuirErroDaApi(erro, setError, (campo) => CAMPOS.includes(campo)) ?? CONFIRA_OS_CAMPOS);
       }
-    }
-  });
+    },
+    () => avisar(CONFIRA_OS_CAMPOS),
+  );
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       style={styles.flex}>
-      <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
-        {erroGeral && <AvisoDeErro mensagem={erroGeral} />}
+      <ScrollView
+        ref={rolagem}
+        // Espaço extra embaixo para o último botão não ficar sob a barra do sistema.
+        contentContainerStyle={[styles.conteudo, { paddingBottom: 20 + margens.bottom }]}
+        keyboardShouldPersistTaps="handled">
+        {erroGeral && <AvisoDeErro mensagem={erroGeral.mensagem} />}
 
         <Controller
           control={control}

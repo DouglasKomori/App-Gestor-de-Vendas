@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Botao } from '@/components/botao';
 import { Carregando, MensagemDeTela } from '@/components/estado-de-tela';
@@ -15,18 +16,18 @@ export default function DetalheDaReceita() {
 
   const receita = useReceita(receitaId);
   const excluir = useExcluirReceita(receitaId);
+  const margens = useSafeAreaInsets();
 
-  if (receita.isPending) {
-    return <Carregando />;
-  }
-
-  if (receita.isError) {
-    return (
+  // Com a receita já carregada, uma atualização em segundo plano que falha não troca a tela.
+  if (receita.data === undefined) {
+    return receita.isError ? (
       <MensagemDeTela
         titulo="Não foi possível abrir a receita"
         descricao={receita.error.message}
         acao={{ titulo: 'Tentar novamente', onPress: () => receita.refetch() }}
       />
+    ) : (
+      <Carregando />
     );
   }
 
@@ -51,7 +52,10 @@ export default function DetalheDaReceita() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.conteudo}>
+    <ScrollView
+      style={styles.container}
+      // Espaço extra embaixo para o último botão não ficar sob a barra do sistema.
+      contentContainerStyle={[styles.conteudo, { paddingBottom: 16 + margens.bottom }]}>
       <View style={styles.cabecalho}>
         <Text style={styles.nome}>{nome}</Text>
         <Text style={styles.detalhe}>

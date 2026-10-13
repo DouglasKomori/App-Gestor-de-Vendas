@@ -9,17 +9,17 @@ export default function NovaReceita() {
   const insumos = useInsumos();
   const criar = useCriarReceita();
 
-  if (insumos.isPending) {
-    return <Carregando />;
-  }
-
-  if (insumos.isError) {
-    return (
+  // Com os insumos já carregados, uma atualização em segundo plano que falha não fecha o
+  // formulário (o que apagaria tudo o que a pessoa digitou).
+  if (insumos.data === undefined) {
+    return insumos.isError ? (
       <MensagemDeTela
         titulo="Não foi possível carregar seus insumos"
         descricao={insumos.error.message}
         acao={{ titulo: 'Tentar novamente', onPress: () => insumos.refetch() }}
       />
+    ) : (
+      <Carregando />
     );
   }
 

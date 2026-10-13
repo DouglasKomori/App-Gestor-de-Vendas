@@ -3,29 +3,40 @@ import type { FieldValues, Path, UseFormSetError } from 'react-hook-form';
 import { ApiError } from '@/lib/api';
 
 /**
- * Quando a API recusa os dados (400 com `details: [{ campo, mensagem }]`), mostra cada
- * mensagem no campo correspondente. Devolve `true` se conseguiu posicionar algum erro.
+ * Distribui um erro de salvamento pelo formulário.
+ *
+ * Quando a API recusa os dados (400 com `details: [{ campo, mensagem }]`), cada mensagem vai
+ * para o campo correspondente. Devolve o texto que deve aparecer como erro geral: as mensagens
+ * que não têm campo na tela, ou a mensagem do próprio erro. Devolve `null` se tudo foi
+ * mostrado nos campos.
  */
-export function aplicarErrosDaApi<T extends FieldValues>(
+export function distribuirErroDaApi<T extends FieldValues>(
   erro: unknown,
   setError: UseFormSetError<T>,
-  /** Campos do formulário, ou uma função que diz se o caminho existe (ex.: "itens.0.unidade"). */
-  campos: readonly Path<T>[] | ((campo: string) => boolean),
-): boolean {
+  /** Diz se o formulário mostra erro neste caminho (ex.: "nome" ou "itens.0.unidade"). */
+  campoExiste: (campo: string) => boolean,
+): string | null {
   if (!(erro instanceof ApiError) || !Array.isArray(erro.details)) {
-    return false;
+    return erro instanceof Error ? erro.message : 'Ocorreu um erro inesperado. Tente novamente.';
   }
 
-  let aplicou = false;
+  const semCampo: string[] = [];
   for (const detalhe of erro.details as { campo?: string; mensagem?: string }[]) {
-    const existe =
-      typeof campos === 'function'
-        ? campos(detalhe.campo ?? '')
-        : campos.some((nome) => nome === detalhe.campo);
-    if (existe && detalhe.mensagem) {
+    if (!detalhe.mensagem) {
+      continue;
+    }
+    if (detalhe.campo && campoExiste(detalhe.campo)) {
       setError(detalhe.campo as Path<T>, { message: detalhe.mensagem });
-      aplicou = true;
+    } else {
+      semCampo.push(detalhe.mensagem);
     }
   }
-  return aplicou;
+
+  if (semCampo.length > 0) {
+    return semCampo.join(' ');
+  }
+  return erro.details.length > 0 ? null : erro.message;
 }
+
+/** Texto do aviso quando a pessoa tenta salvar com campos inválidos. */
+export const CONFIRA_OS_CAMPOS = 'Confira os campos destacados em vermelho.';

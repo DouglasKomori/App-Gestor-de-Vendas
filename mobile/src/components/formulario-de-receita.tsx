@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import {
   ActivityIndicator,
@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AvisoDeErro } from '@/components/aviso-de-erro';
 import { Botao } from '@/components/botao';
@@ -20,11 +21,15 @@ import { SeletorDeInsumo } from '@/components/seletor-de-insumo';
 import { SeletorDeUnidade } from '@/components/seletor-de-unidade';
 import { cores } from '@/constants/tema';
 import { useCalculoAoVivo } from '@/hooks/use-receitas';
-import { aplicarErrosDaApi } from '@/lib/erros-de-formulario';
+import { CONFIRA_OS_CAMPOS, distribuirErroDaApi } from '@/lib/erros-de-formulario';
 import { formatarMoeda } from '@/lib/formato';
 import { unidadePadraoNaReceita, unidadesCompativeis } from '@/lib/unidades';
 import type { Insumo } from '@/schemas/insumo';
 import { receitaSchema, type CamposDaReceita, type DadosDaReceita } from '@/schemas/receita';
+
+/** Caminhos em que o formulário sabe mostrar um erro vindo da API. */
+const CAMPO_COM_ERRO_VISIVEL =
+  /^(nome|rendimentoPorcoes|margemDesejadaPercentual|custosExtrasPercentual|observacoes|itens|itens\.\d+\.(quantidade|unidade))$/;
 
 export const RECEITA_EM_BRANCO: CamposDaReceita = {
   nome: '',
@@ -54,8 +59,22 @@ export function FormularioDeReceita({
   // desatualizada; este componente fica fora da otimização automática.
   'use no memo';
 
-  const [erroGeral, setErroGeral] = useState<string | null>(null);
+  // Guardado como objeto para o efeito abaixo disparar mesmo quando o texto se repete.
+  const [erroGeral, setErroGeral] = useState<{ mensagem: string } | null>(null);
   const [escolhendoInsumo, setEscolhendoInsumo] = useState(false);
+  const rolagem = useRef<ScrollView>(null);
+  const margens = useSafeAreaInsets();
+
+  // O aviso fica no topo: rola até ele, para a falha nunca ficar fora da tela.
+  useEffect(() => {
+    if (erroGeral) {
+      rolagem.current?.scrollTo({ y: 0, animated: true });
+    }
+  }, [erroGeral]);
+
+  function avisar(mensagem: string) {
+    setErroGeral({ mensagem });
+  }
 
   const { control, handleSubmit, setError, clearErrors, formState } = useForm({
     resolver: zodResolver(receitaSchema),
@@ -70,16 +89,21 @@ export function FormularioDeReceita({
   const insumoPorId = new Map(insumos.map((insumo) => [insumo.id, insumo]));
   const erroDosItens = formState.errors.itens?.root?.message ?? formState.errors.itens?.message;
 
-  const enviar = handleSubmit(async (dados) => {
-    setErroGeral(null);
-    try {
-      await onSalvar(dados);
-    } catch (erro) {
-      if (!aplicarErrosDaApi(erro, setError, (campo) => campo.length > 0)) {
-        setErroGeral((erro as Error).message);
+  const enviar = handleSubmit(
+    async (dados) => {
+      setErroGeral(null);
+      try {
+        await onSalvar(dados);
+      } catch (erro) {
+        avisar(
+          distribuirErroDaApi(erro, setError, (campo) => CAMPO_COM_ERRO_VISIVEL.test(campo)) ??
+            CONFIRA_OS_CAMPOS,
+        );
       }
-    }
-  });
+    },
+    // O campo inválido pode estar fora da tela: avisa no topo em vez de parecer que nada aconteceu.
+    () => avisar(CONFIRA_OS_CAMPOS),
+  );
 
   function adicionarItem(insumo: Insumo) {
     setEscolhendoInsumo(false);
@@ -96,8 +120,12 @@ export function FormularioDeReceita({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       style={styles.flex}>
-      <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
-        {erroGeral && <AvisoDeErro mensagem={erroGeral} />}
+      <ScrollView
+        ref={rolagem}
+        // Espaço extra embaixo para o último botão não ficar sob a barra do sistema.
+        contentContainerStyle={[styles.conteudo, { paddingBottom: 20 + margens.bottom }]}
+        keyboardShouldPersistTaps="handled">
+        {erroGeral && <AvisoDeErro mensagem={erroGeral.mensagem} />}
 
         <Controller
           control={control}
@@ -170,8 +198,11 @@ export function FormularioDeReceita({
 
           {itens.fields.map((campo, indice) => {
             const insumo = insumoPorId.get(campo.insumoId);
-            // Enquanto recalcula, o custo antigo poderia aparecer no item errado; por isso some.
-            const custo = calculo.calculando ? undefined : calculo.resultado?.custoPorItem[indice];
+            // Enquanto recalcula (ou logo após remover um item), o custo antigo poderia aparecer
+            // no item errado; por isso some até o novo cálculo chegar.
+            const custosEmDia =
+              !calculo.calculando && campos.itens?.length === itens.fields.length;
+            const custo = custosEmDia ? calculo.resultado?.custoPorItem[indice] : undefined;
 
             return (
               <View key={campo.id} style={styles.item}>
@@ -248,7 +279,8 @@ export function FormularioDeReceita({
           ) : (
             !calculo.calculando && (
               <Text style={styles.semItens}>
-                Preencha o rendimento e a margem para ver o custo e o preço sugerido.
+                Preencha rendimento, margem e custos extras com valores válidos para ver o custo e
+                o preço sugerido.
               </Text>
             )
           )}

@@ -43,17 +43,17 @@ function ItemDaLista({ receita }: { receita: ReceitaResumo }) {
 export default function Receitas() {
   const receitas = useReceitas();
 
-  if (receitas.isPending) {
-    return <Carregando />;
-  }
-
-  if (receitas.isError) {
-    return (
+  // Só mostra carregando/erro quando não há nada para exibir: se uma atualização em segundo
+  // plano falhar, a lista já carregada continua na tela.
+  if (receitas.data === undefined) {
+    return receitas.isError ? (
       <MensagemDeTela
         titulo="Não foi possível carregar as receitas"
         descricao={receitas.error.message}
         acao={{ titulo: 'Tentar novamente', onPress: () => receitas.refetch() }}
       />
+    ) : (
+      <Carregando />
     );
   }
 

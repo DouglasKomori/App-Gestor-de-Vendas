@@ -14,17 +14,16 @@ export default function EditarInsumo() {
   const atualizar = useAtualizarInsumo(insumoId);
   const excluir = useExcluirInsumo(insumoId);
 
-  if (insumo.isPending) {
-    return <Carregando />;
-  }
-
-  if (insumo.isError) {
-    return (
+  // Com o insumo já carregado, uma atualização em segundo plano que falha não fecha o formulário.
+  if (insumo.data === undefined) {
+    return insumo.isError ? (
       <MensagemDeTela
         titulo="Não foi possível abrir o insumo"
         descricao={insumo.error.message}
         acao={{ titulo: 'Tentar novamente', onPress: () => insumo.refetch() }}
       />
+    ) : (
+      <Carregando />
     );
   }
 

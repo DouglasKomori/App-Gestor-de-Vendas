@@ -3,6 +3,7 @@ import { SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { Carregando } from '@/components/estado-de-tela';
 import { TelaSemConexao } from '@/components/tela-sem-conexao';
 import { AuthProvider, useAuth } from '@/contexts/auth';
 import { queryClient } from '@/lib/query-client';
@@ -34,7 +35,9 @@ function RootNavigator() {
   }, [carregando]);
 
   if (carregando) {
-    return null;
+    // Na abertura, a tela de abertura cobre este indicador. Ele só aparece ao tocar em
+    // "Tentar novamente" na tela de sem conexão.
+    return <Carregando />;
   }
 
   if (sessao.status === 'sem-conexao') {

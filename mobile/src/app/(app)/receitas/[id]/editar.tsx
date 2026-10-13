@@ -14,12 +14,10 @@ export default function EditarReceita() {
   const insumos = useInsumos();
   const atualizar = useAtualizarReceita(receitaId);
 
-  if (receita.isPending || insumos.isPending) {
-    return <Carregando />;
-  }
-
-  if (receita.isError || insumos.isError) {
-    return (
+  // Com os dados já carregados, uma atualização em segundo plano que falha não fecha o
+  // formulário (o que apagaria tudo o que a pessoa digitou).
+  if (receita.data === undefined || insumos.data === undefined) {
+    return receita.isError || insumos.isError ? (
       <MensagemDeTela
         titulo="Não foi possível abrir a receita"
         descricao={(receita.error ?? insumos.error)?.message}
@@ -31,6 +29,8 @@ export default function EditarReceita() {
           },
         }}
       />
+    ) : (
+      <Carregando />
     );
   }
 

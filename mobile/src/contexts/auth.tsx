@@ -32,7 +32,14 @@ export function useAuth(): AuthContextValue {
 
 /** Lê o token salvo e confirma com a API (GET /auth/me) se ele ainda vale. */
 async function restaurarSessao(): Promise<Sessao> {
-  const token = await lerToken();
+  let token: string | null;
+  try {
+    token = await lerToken();
+  } catch {
+    // Token ilegível (ex.: chave do aparelho invalidada): descarta e pede login de novo.
+    await apagarToken().catch(() => {});
+    return { status: 'deslogado' };
+  }
   if (!token) {
     return { status: 'deslogado' };
   }

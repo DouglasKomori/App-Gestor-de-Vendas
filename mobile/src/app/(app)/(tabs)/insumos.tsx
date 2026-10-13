@@ -44,17 +44,17 @@ export default function Insumos() {
   const insumos = useInsumos();
   const [busca, setBusca] = useState('');
 
-  if (insumos.isPending) {
-    return <Carregando />;
-  }
-
-  if (insumos.isError) {
-    return (
+  // Só mostra carregando/erro quando não há nada para exibir: se uma atualização em segundo
+  // plano falhar, a lista já carregada continua na tela.
+  if (insumos.data === undefined) {
+    return insumos.isError ? (
       <MensagemDeTela
         titulo="Não foi possível carregar os insumos"
         descricao={insumos.error.message}
         acao={{ titulo: 'Tentar novamente', onPress: () => insumos.refetch() }}
       />
+    ) : (
+      <Carregando />
     );
   }
 
