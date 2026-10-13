@@ -19,7 +19,13 @@ export function formatarDecimal(valor: string): string {
 export function normalizarParaBusca(texto: string): string {
   return texto
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
+}
+
+/** "37.50" → "37,5%" e "30.00" → "30%". */
+export function formatarPercentual(valor: string): string {
+  const semZeros = valor.includes('.') ? valor.replace(/0+$/, '').replace(/\.$/, '') : valor;
+  return `${formatarDecimal(semZeros)}%`;
 }

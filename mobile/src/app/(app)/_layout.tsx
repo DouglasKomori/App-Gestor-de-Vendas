@@ -15,6 +15,9 @@ export default function AppLayout() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="insumos/novo" options={{ title: 'Novo insumo' }} />
       <Stack.Screen name="insumos/[id]" options={{ title: 'Editar insumo' }} />
+      <Stack.Screen name="receitas/nova" options={{ title: 'Nova receita' }} />
+      <Stack.Screen name="receitas/[id]/index" options={{ title: 'Ficha técnica' }} />
+      <Stack.Screen name="receitas/[id]/editar" options={{ title: 'Editar receita' }} />
     </Stack>
   );
 }

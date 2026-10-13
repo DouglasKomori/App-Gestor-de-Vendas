@@ -9,7 +9,8 @@ import { ApiError } from '@/lib/api';
 export function aplicarErrosDaApi<T extends FieldValues>(
   erro: unknown,
   setError: UseFormSetError<T>,
-  campos: readonly Path<T>[],
+  /** Campos do formulário, ou uma função que diz se o caminho existe (ex.: "itens.0.unidade"). */
+  campos: readonly Path<T>[] | ((campo: string) => boolean),
 ): boolean {
   if (!(erro instanceof ApiError) || !Array.isArray(erro.details)) {
     return false;
@@ -17,9 +18,12 @@ export function aplicarErrosDaApi<T extends FieldValues>(
 
   let aplicou = false;
   for (const detalhe of erro.details as { campo?: string; mensagem?: string }[]) {
-    const campo = campos.find((nome) => nome === detalhe.campo);
-    if (campo && detalhe.mensagem) {
-      setError(campo, { message: detalhe.mensagem });
+    const existe =
+      typeof campos === 'function'
+        ? campos(detalhe.campo ?? '')
+        : campos.some((nome) => nome === detalhe.campo);
+    if (existe && detalhe.mensagem) {
+      setError(detalhe.campo as Path<T>, { message: detalhe.mensagem });
       aplicou = true;
     }
   }

@@ -4,9 +4,8 @@ App de precificação para microempreendedores de alimentos. Quem produz e vende
 (lanches, doces, marmitas) cadastra os insumos com o preço pago, monta as fichas técnicas das
 receitas e o app calcula o custo total, o custo por porção e o preço de venda sugerido.
 
-Projeto acadêmico. Estado atual: **Fase 4** (estrutura, banco, módulo de cálculo de preços com
-testes, autenticação completa e cadastro de insumos na API e no app). Faltam as receitas e fichas
-técnicas.
+Projeto acadêmico. Estado atual: **Fase 5** (autenticação, cadastro de insumos e receitas com
+ficha técnica, cálculo em tempo real e comparação entre margem e markup).
 
 ## Estrutura
 
@@ -130,6 +129,30 @@ Se mudar o `.env` com o app aberto, recarregue o app (aperte `r` no terminal do 
 - Cada usuário só enxerga os próprios insumos; o de outra pessoa responde 404.
 - Um insumo usado em alguma receita não pode ser excluído: a API responde 409 dizendo em quais
   receitas ele está.
+
+## Receitas
+
+- `GET /receitas` lista as receitas com `custoPorPorcao` e `precoSugeridoPorPorcao`.
+- `POST /receitas` e `PUT /receitas/:id` recebem a receita com os itens no mesmo corpo:
+  `nome`, `rendimentoPorcoes`, `margemDesejadaPercentual` (0 a 95), `custosExtrasPercentual`,
+  `observacoes` e `itens` (`insumoId`, `quantidade`, `unidade`).
+- `GET /receitas/:id` devolve a receita com o custo de cada item e o cálculo completo.
+- `POST /receitas/calcular` calcula uma receita ainda não salva. O app usa essa rota para
+  atualizar o cálculo enquanto a pessoa edita a ficha técnica.
+- `DELETE /receitas/:id` exclui a receita e seus itens.
+
+Como o cálculo funciona (a lógica fica em `api/src/domain/pricing.ts`):
+
+1. Tudo é convertido para a unidade base: g, ml ou un. Massa e volume não se misturam.
+2. Custo por unidade base = preço da embalagem ÷ (quantidade da embalagem × aproveitamento).
+3. Custo do item = quantidade usada × custo por unidade base.
+4. Custo total = soma dos itens × (1 + custos extras).
+5. Custo por porção = custo total ÷ rendimento.
+6. Preço sugerido = custo por porção ÷ (1 − margem). É margem sobre o preço de venda, não markup.
+
+Os custos nunca são salvos no banco: são recalculados a cada leitura, então mudar o preço de um
+insumo atualiza todas as receitas que o usam. As contas usam decimal.js com precisão completa e
+só são arredondadas para centavos na resposta da API.
 
 ## Padrão de erros da API
 
