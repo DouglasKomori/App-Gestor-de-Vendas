@@ -14,6 +14,10 @@ import { api, ApiError } from '@/lib/api';
 import { cadastroSchema, type DadosDeCadastro, type RespostaDeAutenticacao } from '@/schemas/auth';
 
 export default function Cadastro() {
+  // O React Compiler pode memorizar leituras do estado do React Hook Form e deixar a tela
+  // desatualizada; este componente fica fora da otimização automática.
+  'use no memo';
+
   const { entrar } = useAuth();
 
   const { control, handleSubmit, setError } = useForm({

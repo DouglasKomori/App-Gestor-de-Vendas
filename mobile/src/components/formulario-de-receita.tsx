@@ -50,6 +50,10 @@ export function FormularioDeReceita({
   tituloDoBotao,
   onSalvar,
 }: FormularioDeReceitaProps) {
+  // O React Compiler pode memorizar leituras do estado do React Hook Form e deixar a tela
+  // desatualizada; este componente fica fora da otimização automática.
+  'use no memo';
+
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const [escolhendoInsumo, setEscolhendoInsumo] = useState(false);
 

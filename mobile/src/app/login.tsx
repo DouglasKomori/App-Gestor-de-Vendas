@@ -14,6 +14,10 @@ import { api } from '@/lib/api';
 import { loginSchema, type DadosDeLogin, type RespostaDeAutenticacao } from '@/schemas/auth';
 
 export default function Login() {
+  // O React Compiler pode memorizar leituras do estado do React Hook Form e deixar a tela
+  // desatualizada; este componente fica fora da otimização automática.
+  'use no memo';
+
   const { entrar } = useAuth();
 
   const { control, handleSubmit } = useForm({

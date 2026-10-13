@@ -45,6 +45,10 @@ export function FormularioDeInsumo({
   onExcluir,
   excluindo,
 }: FormularioDeInsumoProps) {
+  // O React Compiler pode memorizar leituras do estado do React Hook Form e deixar a tela
+  // desatualizada; este componente fica fora da otimização automática.
+  'use no memo';
+
   const [erroGeral, setErroGeral] = useState<string | null>(null);
 
   const { control, handleSubmit, setError, formState } = useForm({
