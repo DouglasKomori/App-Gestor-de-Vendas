@@ -4,8 +4,9 @@ App de precificação para microempreendedores de alimentos. Quem produz e vende
 (lanches, doces, marmitas) cadastra os insumos com o preço pago, monta as fichas técnicas das
 receitas e o app calcula o custo total, o custo por porção e o preço de venda sugerido.
 
-Projeto acadêmico. Estado atual: **Fase 3** (estrutura, banco, módulo de cálculo de preços com
-testes e autenticação completa: cadastro, login e proteção de rotas na API e no app).
+Projeto acadêmico. Estado atual: **Fase 4** (estrutura, banco, módulo de cálculo de preços com
+testes, autenticação completa e cadastro de insumos na API e no app). Faltam as receitas e fichas
+técnicas.
 
 ## Estrutura
 
@@ -118,6 +119,17 @@ Se mudar o `.env` com o app aberto, recarregue o app (aperte `r` no terminal do 
 - `GET /auth/me` devolve o usuário dono do token.
 - As demais rotas exigem o cabeçalho `Authorization: Bearer <token>`. O token vale 7 dias.
 - No app, o token fica guardado no armazenamento seguro do aparelho (`expo-secure-store`).
+
+## Insumos
+
+- `GET /insumos`, `POST /insumos`, `GET /insumos/:id`, `PUT /insumos/:id` e `DELETE /insumos/:id`.
+- Campos: `nome`, `unidadeCompra` (`G`, `KG`, `ML`, `L` ou `UN`), `quantidadeEmbalagem`,
+  `precoEmbalagem` e `aproveitamentoPercentual` (opcional, padrão 100).
+- Valores decimais trafegam como texto com ponto (`"5.49"`), para não perder precisão. No app, a
+  pessoa pode digitar com vírgula.
+- Cada usuário só enxerga os próprios insumos; o de outra pessoa responde 404.
+- Um insumo usado em alguma receita não pode ser excluído: a API responde 409 dizendo em quais
+  receitas ele está.
 
 ## Padrão de erros da API
 

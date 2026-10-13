@@ -5,14 +5,21 @@ import { cores } from '@/constants/tema';
 interface BotaoProps {
   titulo: string;
   onPress: () => void;
-  variante?: 'primario' | 'secundario';
+  /** `secundario` e `perigo` são botões só de texto, para ações de menor destaque. */
+  variante?: 'primario' | 'secundario' | 'perigo';
   carregando?: boolean;
   disabled?: boolean;
 }
 
+const COR_DO_TEXTO = {
+  primario: cores.superficie,
+  secundario: cores.primaria,
+  perigo: cores.erro,
+} as const;
+
 export function Botao({ titulo, onPress, variante = 'primario', carregando, disabled }: BotaoProps) {
-  const primario = variante === 'primario';
   const inativo = disabled || carregando;
+  const corDoTexto = COR_DO_TEXTO[variante];
 
   return (
     <Pressable
@@ -22,15 +29,13 @@ export function Botao({ titulo, onPress, variante = 'primario', carregando, disa
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
-        primario ? styles.primario : styles.secundario,
+        variante === 'primario' && styles.primario,
         (pressed || inativo) && styles.esmaecido,
       ]}>
       {carregando ? (
-        <ActivityIndicator color={primario ? cores.superficie : cores.primaria} />
+        <ActivityIndicator color={corDoTexto} />
       ) : (
-        <Text style={[styles.texto, primario ? styles.textoPrimario : styles.textoSecundario]}>
-          {titulo}
-        </Text>
+        <Text style={[styles.texto, { color: corDoTexto }]}>{titulo}</Text>
       )}
     </Pressable>
   );
@@ -47,20 +52,11 @@ const styles = StyleSheet.create({
   primario: {
     backgroundColor: cores.primaria,
   },
-  secundario: {
-    backgroundColor: 'transparent',
-  },
   esmaecido: {
     opacity: 0.7,
   },
   texto: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  textoPrimario: {
-    color: cores.superficie,
-  },
-  textoSecundario: {
-    color: cores.primaria,
   },
 });

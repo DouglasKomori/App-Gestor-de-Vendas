@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { errorHandler, notFoundHandler } from './http/errors';
 import { authRouter } from './routes/auth';
 import { healthRouter } from './routes/health';
+import { insumosRouter } from './routes/insumos';
 
 // Mensagens padrão de validação do Zod em português.
 z.config(z.locales.pt());
@@ -14,6 +15,7 @@ app.use(express.json());
 
 app.use(healthRouter);
 app.use(authRouter);
+app.use(insumosRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

@@ -60,7 +60,8 @@ export async function api<T>(caminho: string, opcoes: OpcoesDaRequisicao = {}): 
     throw new ApiError(
       0,
       'SEM_CONEXAO',
-      'Não foi possível conectar ao servidor. Confira sua internet e tente de novo.',
+      'Não foi possível conectar ao servidor. Confira sua internet e tente de novo.' +
+        (__DEV__ ? ` [dev: a API está rodando em ${API_URL}?]` : ''),
     );
   } finally {
     clearTimeout(timeout);
