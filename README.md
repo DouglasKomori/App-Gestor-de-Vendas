@@ -4,8 +4,8 @@ App de precificação para microempreendedores de alimentos. Quem produz e vende
 (lanches, doces, marmitas) cadastra os insumos com o preço pago, monta as fichas técnicas das
 receitas e o app calcula o custo total, o custo por porção e o preço de venda sugerido.
 
-Projeto acadêmico. Estado atual: **Fase 1** (estrutura, banco, API com `/health` e app com tela
-provisória).
+Projeto acadêmico. Estado atual: **Fase 2** (estrutura, banco, API com `/health`, app com tela
+provisória e o módulo de cálculo `api/src/domain/pricing.ts` com testes unitários).
 
 ## Estrutura
 
@@ -103,6 +103,7 @@ Se mudar o `.env` com o app aberto, recarregue o app (aperte `r` no terminal do 
 | `api/` | `npm run dev` | API com recarga automática |
 | `api/` | `npm run db:migrate` | aplicar migrations (e criar novas após mudar o schema) |
 | `api/` | `npm run db:studio` | abrir o Prisma Studio para ver os dados |
+| `api/` | `npm test` | rodar os testes do cálculo de preços (não precisa do banco) |
 | `api/` | `npm run typecheck` | checar tipos |
 | `mobile/` | `npx expo start` | iniciar o app |
 | `mobile/` | `npm run lint` / `npm run typecheck` | lint e checagem de tipos |
