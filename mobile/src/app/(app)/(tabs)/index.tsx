@@ -3,6 +3,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Botao } from '@/components/botao';
 import { Carregando, MensagemDeTela } from '@/components/estado-de-tela';
+import { resumoDoPreco } from '@/components/resultado-do-preco';
 import { cores } from '@/constants/tema';
 import { useReceitas } from '@/hooks/use-receitas';
 import { formatarMoeda } from '@/lib/formato';
@@ -36,6 +37,13 @@ function ItemDaLista({ receita }: { receita: ReceitaResumo }) {
           <Text style={styles.preco}>{formatarMoeda(receita.precoSugeridoPorPorcao)}</Text>
         </View>
       </View>
+
+      {receita.praticado && (
+        <Text
+          style={[styles.situacao, receita.praticado.situacao === 'PREJUIZO' && styles.prejuizo]}>
+          Com {formatarMoeda(receita.praticado.precoPorPorcao)}: {resumoDoPreco(receita.praticado)}
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -137,6 +145,14 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: cores.sucesso,
+  },
+  situacao: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: cores.texto,
+  },
+  prejuizo: {
+    color: cores.erro,
   },
   rodape: {
     padding: 16,

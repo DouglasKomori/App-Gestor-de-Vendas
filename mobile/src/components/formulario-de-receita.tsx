@@ -14,29 +14,42 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AvisoDeAtencao, ListaDeAlertas } from '@/components/alertas';
 import { AvisoDeErro } from '@/components/aviso-de-erro';
 import { Botao } from '@/components/botao';
 import { CampoTexto } from '@/components/campo-texto';
+import { EscolhaDeMedida } from '@/components/escolha-de-medida';
+import { ResultadoDoPreco } from '@/components/resultado-do-preco';
 import { ResumoDoCalculo } from '@/components/resumo-do-calculo';
 import { SeletorDeInsumo } from '@/components/seletor-de-insumo';
-import { SeletorDeUnidade } from '@/components/seletor-de-unidade';
 import { cores } from '@/constants/tema';
 import { useCalculoAoVivo } from '@/hooks/use-receitas';
+import { ApiError } from '@/lib/api';
 import { CONFIRA_OS_CAMPOS, distribuirErroDaApi } from '@/lib/erros-de-formulario';
-import { formatarMoeda } from '@/lib/formato';
-import { unidadePadraoNaReceita, unidadesCompativeis } from '@/lib/unidades';
+import { formatarDecimal, formatarMoeda } from '@/lib/formato';
+import { unidadePadraoNaReceita } from '@/lib/unidades';
 import type { Insumo } from '@/schemas/insumo';
 import { receitaSchema, type CamposDaReceita, type DadosDaReceita } from '@/schemas/receita';
 
 /** Caminhos em que o formulário sabe mostrar um erro vindo da API. */
 const CAMPO_COM_ERRO_VISIVEL =
-  /^(nome|rendimentoPorcoes|margemDesejadaPercentual|custosExtrasPercentual|observacoes|itens|itens\.\d+\.(quantidade|unidade))$/;
+  /^(nome|rendimentoPorcoes|margemDesejadaPercentual|custosExtrasPercentual|tempoPreparoMinutos|valorHoraTrabalho|taxaVendaPercentual|precoVendaPraticado|observacoes|itens|itens\.\d+\.(quantidade|unidade))$/;
+
+/** Primeira explicação que a API deu para recusar o cálculo, se houver. */
+function motivoDoErro(erro: Error): string {
+  const [detalhe] = erro instanceof ApiError && Array.isArray(erro.details) ? erro.details : [];
+  return detalhe?.mensagem ?? erro.message;
+}
 
 export const RECEITA_EM_BRANCO: CamposDaReceita = {
   nome: '',
   rendimentoPorcoes: '',
   margemDesejadaPercentual: '',
   custosExtrasPercentual: '0',
+  tempoPreparoMinutos: '',
+  valorHoraTrabalho: '',
+  taxaVendaPercentual: '',
+  precoVendaPraticado: '',
   observacoes: '',
   itens: [],
 };
@@ -77,7 +90,7 @@ export function FormularioDeReceita({
     setErroGeral({ mensagem });
   }
 
-  const { control, handleSubmit, setError, clearErrors, formState } = useForm({
+  const { control, handleSubmit, setError, setValue, clearErrors, formState } = useForm({
     resolver: zodResolver(receitaSchema),
     defaultValues: valoresIniciais,
   });
@@ -113,6 +126,7 @@ export function FormularioDeReceita({
       insumoId: insumo.id,
       quantidade: '',
       unidade: unidadePadraoNaReceita(insumo.unidadeCompra),
+      medidaCaseiraId: null,
     });
   }
 
@@ -184,7 +198,7 @@ export function FormularioDeReceita({
           render={({ field, fieldState }) => (
             <CampoTexto
               label="Custos extras (%)"
-              ajuda="Gás, energia, embalagem. É somado como percentual sobre o custo dos ingredientes."
+              ajuda="Gás e energia, como percentual sobre os ingredientes. Embalagem cadastre como insumo, para não contar duas vezes."
               value={field.value}
               onChangeText={field.onChange}
               onBlur={field.onBlur}
@@ -193,6 +207,78 @@ export function FormularioDeReceita({
             />
           )}
         />
+
+        <View style={styles.secao}>
+          <Text style={styles.tituloDaSecao}>Seu trabalho e suas vendas</Text>
+
+          <Controller
+            control={control}
+            name="tempoPreparoMinutos"
+            render={({ field, fieldState }) => (
+              <CampoTexto
+                label="Tempo de trabalho (minutos)"
+                placeholder="Ex.: 90"
+                ajuda="Tempo seu na receita inteira, do preparo à limpeza."
+                value={field.value}
+                onChangeText={field.onChange}
+                onBlur={field.onBlur}
+                erro={fieldState.error?.message}
+                keyboardType="number-pad"
+              />
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="valorHoraTrabalho"
+            render={({ field, fieldState }) => (
+              <CampoTexto
+                label="Quanto vale sua hora (R$)"
+                placeholder="Ex.: 15,00"
+                ajuda="Sem isso, o lucro mostrado ainda inclui o seu pagamento."
+                value={field.value}
+                onChangeText={field.onChange}
+                onBlur={field.onBlur}
+                erro={fieldState.error?.message}
+                keyboardType="decimal-pad"
+              />
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="taxaVendaPercentual"
+            render={({ field, fieldState }) => (
+              <CampoTexto
+                label="Taxa de venda (%)"
+                placeholder="Ex.: 4"
+                ajuda="Maquininha ou aplicativo de entrega. Confira o percentual no seu contrato. Se vende só no dinheiro ou Pix, deixe vazio."
+                value={field.value}
+                onChangeText={field.onChange}
+                onBlur={field.onBlur}
+                erro={fieldState.error?.message}
+                keyboardType="decimal-pad"
+              />
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="precoVendaPraticado"
+            render={({ field, fieldState }) => (
+              <CampoTexto
+                label="Quanto você cobra hoje por porção (R$)"
+                placeholder="Ex.: 2,50"
+                ajuda="Opcional. Mostra se esse preço dá lucro de verdade."
+                value={field.value}
+                onChangeText={field.onChange}
+                onBlur={field.onBlur}
+                erro={fieldState.error?.message}
+                keyboardType="decimal-pad"
+              />
+            )}
+          />
+        </View>
 
         <View style={styles.secao}>
           <Text style={styles.tituloDaSecao}>Insumos da receita</Text>
@@ -204,6 +290,9 @@ export function FormularioDeReceita({
             const custosEmDia =
               !calculo.calculando && campos.itens?.length === itens.fields.length;
             const custo = custosEmDia ? calculo.resultado?.custoPorItem[indice] : undefined;
+            const alertasDoItem = custosEmDia ? calculo.resultado?.alertasPorItem[indice] : undefined;
+            const itemAtual = campos.itens?.[indice];
+            const temPerda = insumo !== undefined && insumo.aproveitamentoPercentual !== '100';
 
             return (
               <View key={campo.id} style={styles.item}>
@@ -219,6 +308,11 @@ export function FormularioDeReceita({
                     <CampoTexto
                       label="Quantidade usada"
                       placeholder="Ex.: 200"
+                      ajuda={
+                        temPerda
+                          ? `Use a quantidade já limpa: o aproveitamento de ${formatarDecimal(insumo.aproveitamentoPercentual)}% já cobre a perda.`
+                          : undefined
+                      }
                       value={field.value}
                       onChangeText={field.onChange}
                       onBlur={field.onBlur}
@@ -233,12 +327,17 @@ export function FormularioDeReceita({
                   name={`itens.${indice}.unidade`}
                   render={({ field, fieldState }) => (
                     <>
-                      <SeletorDeUnidade
-                        label="Unidade"
-                        valor={field.value}
-                        onChange={field.onChange}
-                        opcoes={insumo ? unidadesCompativeis(insumo.unidadeCompra) : [field.value]}
-                      />
+                      {insumo && (
+                        <EscolhaDeMedida
+                          insumo={insumo}
+                          unidade={field.value}
+                          medidaCaseiraId={itemAtual?.medidaCaseiraId ?? null}
+                          onChange={(unidade, medidaCaseiraId) => {
+                            field.onChange(unidade);
+                            setValue(`itens.${indice}.medidaCaseiraId`, medidaCaseiraId);
+                          }}
+                        />
+                      )}
                       {fieldState.error?.message && (
                         <Text style={styles.erro}>{fieldState.error.message}</Text>
                       )}
@@ -249,6 +348,7 @@ export function FormularioDeReceita({
                 {custo !== undefined && (
                   <Text style={styles.itemCusto}>Custo deste item: {formatarMoeda(custo)}</Text>
                 )}
+                <ListaDeAlertas mensagens={alertasDoItem ?? []} />
               </View>
             );
           })}
@@ -271,17 +371,28 @@ export function FormularioDeReceita({
             {calculo.calculando && <ActivityIndicator size="small" color={cores.primaria} />}
           </View>
 
+          {calculo.itensDeFora > 0 && (
+            <AvisoDeAtencao
+              mensagem={`${calculo.itensDeFora === 1 ? '1 insumo sem quantidade ainda não entra' : `${calculo.itensDeFora} insumos sem quantidade ainda não entram`} na conta: o custo real é maior que o mostrado.`}
+            />
+          )}
+
           {calculo.resultado ? (
-            <View style={styles.cartao}>
-              <ResumoDoCalculo calculo={calculo.resultado.calculo} />
-            </View>
+            <>
+              <View style={styles.cartao}>
+                <ResumoDoCalculo calculo={calculo.resultado.calculo} />
+              </View>
+              {calculo.resultado.calculo.praticado && (
+                <ResultadoDoPreco praticado={calculo.resultado.calculo.praticado} />
+              )}
+              <ListaDeAlertas mensagens={calculo.resultado.alertasGerais} />
+            </>
           ) : calculo.erro ? (
-            <AvisoDeErro mensagem={`Não foi possível calcular agora. ${calculo.erro.message}`} />
+            <AvisoDeErro mensagem={`Não foi possível calcular agora. ${motivoDoErro(calculo.erro)}`} />
           ) : (
             !calculo.calculando && (
               <Text style={styles.semItens}>
-                Preencha rendimento, margem e custos extras com valores válidos para ver o custo e
-                o preço sugerido.
+                Preencha os campos acima com valores válidos para ver o custo e o preço sugerido.
               </Text>
             )
           )}

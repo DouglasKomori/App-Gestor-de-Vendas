@@ -2,8 +2,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ListaDeAlertas } from '@/components/alertas';
 import { Botao } from '@/components/botao';
 import { Carregando, MensagemDeTela } from '@/components/estado-de-tela';
+import { ResultadoDoPreco } from '@/components/resultado-do-preco';
 import { ResumoDoCalculo } from '@/components/resumo-do-calculo';
 import { cores } from '@/constants/tema';
 import { useExcluirReceita, useReceita } from '@/hooks/use-receitas';
@@ -73,6 +75,10 @@ export default function DetalheDaReceita() {
         </Text>
       </View>
 
+      {calculo.praticado && <ResultadoDoPreco praticado={calculo.praticado} />}
+
+      <ListaDeAlertas mensagens={calculo.alertas.map(({ mensagem }) => mensagem)} />
+
       <View style={styles.cartao}>
         <Text style={styles.titulo}>Custo por insumo</Text>
         {itens.map((item) => (
@@ -80,7 +86,8 @@ export default function DetalheDaReceita() {
             <View style={styles.itemTextos}>
               <Text style={styles.itemNome}>{item.insumoNome}</Text>
               <Text style={styles.itemQuantidade}>
-                {formatarDecimal(item.quantidade)} {ROTULO_UNIDADE[item.unidade]}
+                {formatarDecimal(item.quantidade)}{' '}
+                {item.medidaNome ? `× ${item.medidaNome}` : ROTULO_UNIDADE[item.unidade]}
               </Text>
             </View>
             <Text style={styles.itemCusto}>{formatarMoeda(item.custo)}</Text>

@@ -8,4 +8,7 @@ export const cores = {
   erro: '#B3261E',
   erroFundo: '#FCEEEE',
   sucesso: '#1A7F4B',
+  sucessoFundo: '#E8F5EE',
+  atencao: '#7A4F01',
+  atencaoFundo: '#FDF3DC',
 } as const;

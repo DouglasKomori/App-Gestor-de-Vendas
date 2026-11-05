@@ -469,5 +469,6 @@ export function gerarAlertas(
 
 /** Arredonda para 2 casas (meio para cima). Usar somente na exibição final. */
 export function arredondarMoeda(valor: ValorDecimal): string {
-  return new D(valor).toFixed(2, Decimal.ROUND_HALF_UP);
+  const texto = new D(valor).toFixed(2, Decimal.ROUND_HALF_UP);
+  return texto === '-0.00' ? '0.00' : texto;
 }

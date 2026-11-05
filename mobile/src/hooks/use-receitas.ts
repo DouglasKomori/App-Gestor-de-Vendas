@@ -81,20 +81,31 @@ export function useCalculoAoVivo(campos: CamposEmEdicao) {
         method: 'POST',
         body: dados,
       });
-      // Custo de cada item, indexado pela posição do item no formulário.
+      // Custo e alertas de cada item, indexados pela posição do item no formulário.
       const custoPorItem: Record<number, string> = {};
       calculo.itens.forEach((item, posicao) => {
         custoPorItem[indices[posicao]] = item.custo;
       });
-      return { calculo, custoPorItem };
+      const alertasPorItem: Record<number, string[]> = {};
+      const alertasGerais: string[] = [];
+      calculo.alertas.forEach(({ mensagem, indiceItem }) => {
+        if (indiceItem === undefined) {
+          alertasGerais.push(mensagem);
+        } else {
+          (alertasPorItem[indices[indiceItem]] ??= []).push(mensagem);
+        }
+      });
+      return { calculo, custoPorItem, alertasPorItem, alertasGerais };
     },
     enabled: pedidoComAtraso !== null,
     placeholderData: keepPreviousData,
   });
 
   return {
-    /** `null` enquanto rendimento, margem ou custos extras não estiverem preenchidos. */
+    /** `null` enquanto os campos gerais da receita não estiverem preenchidos. */
     resultado: pedido === null ? null : (consulta.data ?? null),
+    /** Itens que ainda não entram na conta, por estarem sem quantidade válida. */
+    itensDeFora: preparado ? (campos.itens?.length ?? 0) - preparado.indices.length : 0,
     calculando: pedido !== null && (pedido !== pedidoComAtraso || consulta.isFetching),
     erro: pedido !== null && consulta.isError ? consulta.error : null,
   };

@@ -43,11 +43,19 @@ export default function EditarReceita() {
         rendimentoPorcoes: String(dados.rendimentoPorcoes),
         margemDesejadaPercentual: formatarDecimal(dados.margemDesejadaPercentual),
         custosExtrasPercentual: formatarDecimal(dados.custosExtrasPercentual),
+        tempoPreparoMinutos: dados.tempoPreparoMinutos ? String(dados.tempoPreparoMinutos) : '',
+        valorHoraTrabalho: dados.valorHoraTrabalho === '0' ? '' : formatarDecimal(dados.valorHoraTrabalho),
+        taxaVendaPercentual:
+          dados.taxaVendaPercentual === '0' ? '' : formatarDecimal(dados.taxaVendaPercentual),
+        precoVendaPraticado: dados.precoVendaPraticado
+          ? formatarDecimal(dados.precoVendaPraticado)
+          : '',
         observacoes: dados.observacoes ?? '',
         itens: dados.itens.map((item) => ({
           insumoId: item.insumoId,
           quantidade: formatarDecimal(item.quantidade),
           unidade: item.unidade,
+          medidaCaseiraId: item.medidaCaseiraId,
         })),
       }}
       insumos={insumos.data}

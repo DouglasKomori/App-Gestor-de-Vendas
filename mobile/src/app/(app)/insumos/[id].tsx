@@ -27,8 +27,14 @@ export default function EditarInsumo() {
     );
   }
 
-  const { nome, unidadeCompra, quantidadeEmbalagem, precoEmbalagem, aproveitamentoPercentual } =
-    insumo.data;
+  const {
+    nome,
+    unidadeCompra,
+    quantidadeEmbalagem,
+    precoEmbalagem,
+    aproveitamentoPercentual,
+    medidas,
+  } = insumo.data;
 
   function confirmarExclusao() {
     Alert.alert('Excluir insumo', `Excluir "${nome}"? Essa ação não pode ser desfeita.`, [
@@ -54,6 +60,10 @@ export default function EditarInsumo() {
         quantidadeEmbalagem: formatarDecimal(quantidadeEmbalagem),
         precoEmbalagem: formatarDecimal(precoEmbalagem),
         aproveitamentoPercentual: formatarDecimal(aproveitamentoPercentual),
+        medidas: medidas.map((medida) => ({
+          ...medida,
+          quantidade: formatarDecimal(medida.quantidade),
+        })),
       }}
       tituloDoBotao="Salvar alterações"
       onSalvar={async (dados) => {

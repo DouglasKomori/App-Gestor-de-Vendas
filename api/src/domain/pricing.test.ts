@@ -371,6 +371,11 @@ describe('arredondamento', () => {
     expect(arredondarMoeda('1234.5')).toBe('1234.50');
   });
 
+  it('não mostra menos zero', () => {
+    expect(arredondarMoeda('-0.001')).toBe('0.00');
+    expect(arredondarMoeda('-0.01')).toBe('-0.01');
+  });
+
   it('não sofre com a imprecisão de ponto flutuante', () => {
     // Em JavaScript puro, (1.005).toFixed(2) dá "1.00".
     expect(arredondarMoeda('1.005')).toBe('1.01');

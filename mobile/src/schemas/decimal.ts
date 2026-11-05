@@ -1,47 +1,73 @@
 import { z } from 'zod';
 
-interface OpcoesDecimal {
-  /** Mensagem quando o campo fica vazio. */
-  obrigatorio: string;
+interface LimitesDoDecimal {
   /** Exige valor maior que zero. */
   positivo?: boolean;
   maximo: number;
   casas: number;
 }
 
+interface OpcoesDecimal extends LimitesDoDecimal {
+  /** Mensagem quando o campo fica vazio. */
+  obrigatorio: string;
+}
+
+/** Devolve o texto com ponto, ou o erro para mostrar no campo. */
+function lerDecimal(texto: string, { positivo = false, maximo, casas }: LimitesDoDecimal) {
+  if (!/^\d+([.,]\d+)?$/.test(texto)) {
+    return { erro: 'Digite apenas números, como 5,49.' };
+  }
+
+  const normalizado = texto.replace(',', '.');
+  const decimais = normalizado.split('.')[1] ?? '';
+  if (decimais.length > casas) {
+    return { erro: `Use no máximo ${casas} casas depois da vírgula.` };
+  }
+
+  // Number() aqui serve só para comparar com os limites; nenhuma conta é feita com ele.
+  const numero = Number(normalizado);
+  if (positivo && numero === 0) {
+    return { erro: 'Deve ser maior que zero.' };
+  }
+  if (numero > maximo) {
+    return { erro: `O valor máximo é ${String(maximo).replace('.', ',')}.` };
+  }
+  return { valor: normalizado };
+}
+
 /**
  * Campo decimal digitado pelo usuário, aceitando vírgula ou ponto ("5,49" ou "5.49").
  * Devolve o texto com ponto, pronto para enviar à API, que valida tudo de novo.
  */
-export function decimalDigitado({ obrigatorio, positivo = false, maximo, casas }: OpcoesDecimal) {
+export function decimalDigitado({ obrigatorio, ...limites }: OpcoesDecimal) {
   return z
     .string()
     .trim()
     .min(1, obrigatorio)
     .transform((texto, ctx) => {
-      const falhar = (message: string) => {
-        ctx.issues.push({ code: 'custom', message, input: texto });
+      const { valor, erro } = lerDecimal(texto, limites);
+      if (erro !== undefined) {
+        ctx.issues.push({ code: 'custom', message: erro, input: texto });
         return z.NEVER;
-      };
+      }
+      return valor;
+    });
+}
 
-      if (!/^\d+([.,]\d+)?$/.test(texto)) {
-        return falhar('Digite apenas números, como 5,49.');
+/** Como `decimalDigitado`, mas o campo pode ficar vazio (devolve `null`). */
+export function decimalDigitadoOpcional(limites: LimitesDoDecimal) {
+  return z
+    .string()
+    .trim()
+    .transform((texto, ctx) => {
+      if (texto === '') {
+        return null;
       }
-
-      const normalizado = texto.replace(',', '.');
-      const decimais = normalizado.split('.')[1] ?? '';
-      if (decimais.length > casas) {
-        return falhar(`Use no máximo ${casas} casas depois da vírgula.`);
+      const { valor, erro } = lerDecimal(texto, limites);
+      if (erro !== undefined) {
+        ctx.issues.push({ code: 'custom', message: erro, input: texto });
+        return z.NEVER;
       }
-
-      // Number() aqui serve só para comparar com os limites; nenhuma conta é feita com ele.
-      const numero = Number(normalizado);
-      if (positivo && numero === 0) {
-        return falhar('Deve ser maior que zero.');
-      }
-      if (numero > maximo) {
-        return falhar(`O valor máximo é ${String(maximo).replace('.', ',')}.`);
-      }
-      return normalizado;
+      return valor;
     });
 }

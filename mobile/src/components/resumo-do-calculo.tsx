@@ -19,6 +19,7 @@ export function ResumoDoCalculo({ calculo }: { calculo: Calculo }) {
     <View style={styles.container}>
       <Linha rotulo="Custo dos ingredientes" valor={formatarMoeda(calculo.custoIngredientes)} />
       <Linha rotulo="Custos extras" valor={formatarMoeda(calculo.custoExtras)} />
+      <Linha rotulo="Mão de obra" valor={formatarMoeda(calculo.custoMaoDeObra)} />
       <Linha rotulo="Custo total da receita" valor={formatarMoeda(calculo.custoTotal)} />
       <View style={styles.divisor} />
       <Linha rotulo="Custo por porção" valor={formatarMoeda(calculo.custoPorPorcao)} />
@@ -27,6 +28,7 @@ export function ResumoDoCalculo({ calculo }: { calculo: Calculo }) {
         valor={formatarMoeda(calculo.precoSugeridoPorPorcao)}
         destaque
       />
+      <Linha rotulo="Taxa de venda por porção" valor={formatarMoeda(calculo.taxaVendaPorPorcao)} />
       <Linha rotulo="Lucro por porção" valor={formatarMoeda(calculo.lucroPorPorcao)} />
     </View>
   );
