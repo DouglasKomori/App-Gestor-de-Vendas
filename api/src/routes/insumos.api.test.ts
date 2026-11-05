@@ -69,6 +69,7 @@ describe('POST /insumos', () => {
       quantidadeEmbalagem: '1',
       precoEmbalagem: '5.49',
       aproveitamentoPercentual: '100',
+      medidas: [],
       createdAt: expect.any(String),
       updatedAt: expect.any(String),
     });
@@ -379,5 +380,178 @@ describe('isolamento entre usuários', () => {
     const intacto = await request(app).get(url).set(maria.auth);
     expect(intacto.status).toBe(200);
     expect(intacto.body.insumo).toEqual(criado.body.insumo);
+  });
+});
+
+describe('medidas caseiras', () => {
+  const colher = { nome: 'Colher de sopa', quantidade: '20', unidade: 'G' };
+
+  async function criarManteiga(usuario: UsuarioDeTeste, medidas: unknown[] = [colher]) {
+    return criarInsumo(usuario, {
+      nome: 'Manteiga',
+      unidadeCompra: 'G',
+      quantidadeEmbalagem: '200',
+      precoEmbalagem: '10',
+      medidas,
+    });
+  }
+
+  it('salva as medidas junto com o insumo', async () => {
+    const usuario = await criarUsuario();
+    const resposta = await criarManteiga(usuario);
+
+    expect(resposta.status).toBe(201);
+    expect(resposta.body.insumo.medidas).toEqual([
+      { id: expect.any(Number), nome: 'Colher de sopa', quantidade: '20', unidade: 'G' },
+    ]);
+  });
+
+  it('aceita medida em outra unidade do mesmo tipo', async () => {
+    const usuario = await criarUsuario();
+    const resposta = await criarInsumo(usuario, {
+      medidas: [{ nome: 'Cebola média', quantidade: '150', unidade: 'G' }],
+    });
+
+    expect(resposta.status).toBe(201);
+  });
+
+  it('recusa medida de tipo diferente da embalagem', async () => {
+    const usuario = await criarUsuario();
+    const resposta = await criarManteiga(usuario, [{ ...colher, quantidade: '15', unidade: 'ML' }]);
+
+    expect(resposta.status).toBe(400);
+    expect(resposta.body.error.details).toEqual([
+      {
+        campo: 'medidas.0.unidade',
+        mensagem: 'A medida precisa usar o mesmo tipo de unidade da embalagem.',
+      },
+    ]);
+  });
+
+  it('recusa nomes repetidos, sem diferenciar maiúsculas', async () => {
+    const usuario = await criarUsuario();
+    const resposta = await criarManteiga(usuario, [colher, { ...colher, nome: 'COLHER DE SOPA' }]);
+
+    expect(resposta.status).toBe(400);
+    expect(resposta.body.error.details[0].campo).toBe('medidas.1.nome');
+  });
+
+  it('recusa medida sem valor', async () => {
+    const usuario = await criarUsuario();
+    const resposta = await criarManteiga(usuario, [{ ...colher, quantidade: '0' }]);
+
+    expect(resposta.status).toBe(400);
+    expect(resposta.body.error.details[0].campo).toBe('medidas.0.quantidade');
+  });
+
+  it('mantém as medidas quando o campo não é enviado', async () => {
+    const usuario = await criarUsuario();
+    const criado = await criarManteiga(usuario);
+
+    const resposta = await request(app)
+      .put(`/insumos/${criado.body.insumo.id}`)
+      .set(usuario.auth)
+      .send({ nome: 'Manteiga', unidadeCompra: 'G', quantidadeEmbalagem: '200', precoEmbalagem: '12' });
+
+    expect(resposta.body.insumo.medidas).toEqual(criado.body.insumo.medidas);
+  });
+
+  it('altera, adiciona e remove medidas em uma só edição', async () => {
+    const usuario = await criarUsuario();
+    const criado = await criarManteiga(usuario, [colher, { ...colher, nome: 'Colher de chá', quantidade: '5' }]);
+    const [sopa] = criado.body.insumo.medidas;
+
+    const resposta = await request(app)
+      .put(`/insumos/${criado.body.insumo.id}`)
+      .set(usuario.auth)
+      .send({
+        nome: 'Manteiga',
+        unidadeCompra: 'G',
+        quantidadeEmbalagem: '200',
+        precoEmbalagem: '10',
+        medidas: [
+          { ...sopa, quantidade: '14' },
+          { nome: 'Xícara', quantidade: '200', unidade: 'G' },
+        ],
+      });
+
+    expect(resposta.status).toBe(200);
+    expect(resposta.body.insumo.medidas).toEqual([
+      { id: sopa.id, nome: 'Colher de sopa', quantidade: '14', unidade: 'G' },
+      { id: expect.any(Number), nome: 'Xícara', quantidade: '200', unidade: 'G' },
+    ]);
+  });
+
+  it('não deixa remover medida usada em receita', async () => {
+    const usuario = await criarUsuario();
+    const criado = await criarManteiga(usuario);
+    const insumoId = criado.body.insumo.id;
+    const receita = await prisma.receita.create({
+      data: {
+        userId: usuario.id,
+        nome: 'Bolo',
+        rendimentoPorcoes: 1,
+        margemDesejadaPercentual: 30,
+        itens: {
+          create: [
+            {
+              insumoId,
+              quantidade: 1,
+              unidade: 'G',
+              medidaCaseiraId: criado.body.insumo.medidas[0].id,
+            },
+          ],
+        },
+      },
+    });
+
+    const resposta = await request(app).put(`/insumos/${insumoId}`).set(usuario.auth).send({
+      nome: 'Manteiga',
+      unidadeCompra: 'G',
+      quantidadeEmbalagem: '200',
+      precoEmbalagem: '10',
+      medidas: [],
+    });
+
+    expect(resposta.status).toBe(409);
+    expect(resposta.body.error).toEqual({
+      code: 'MEDIDA_EM_USO',
+      message: 'Não é possível remover essa medida, porque ela é usada em: "Bolo".',
+      details: { receitas: [{ id: receita.id, nome: 'Bolo' }] },
+    });
+  });
+
+  it('não deixa alterar medida de outro insumo', async () => {
+    const maria = await criarUsuario('Maria');
+    const joao = await criarUsuario('João');
+    const daMaria = await criarManteiga(maria);
+    const doJoao = await criarManteiga(joao, []);
+
+    const resposta = await request(app)
+      .put(`/insumos/${doJoao.body.insumo.id}`)
+      .set(joao.auth)
+      .send({
+        nome: 'Manteiga',
+        unidadeCompra: 'G',
+        quantidadeEmbalagem: '200',
+        precoEmbalagem: '10',
+        medidas: [{ ...daMaria.body.insumo.medidas[0], quantidade: '1' }],
+      });
+
+    expect(resposta.status).toBe(400);
+    expect(resposta.body.error.details[0].campo).toBe('medidas.0.id');
+  });
+
+  it('descarta as medidas quando o insumo muda de massa para volume', async () => {
+    const usuario = await criarUsuario();
+    const criado = await criarManteiga(usuario);
+
+    const resposta = await request(app)
+      .put(`/insumos/${criado.body.insumo.id}`)
+      .set(usuario.auth)
+      .send({ nome: 'Óleo', unidadeCompra: 'ML', quantidadeEmbalagem: '900', precoEmbalagem: '7.5' });
+
+    expect(resposta.status).toBe(200);
+    expect(resposta.body.insumo.medidas).toEqual([]);
   });
 });

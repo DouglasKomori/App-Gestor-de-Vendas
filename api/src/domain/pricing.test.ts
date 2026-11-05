@@ -7,6 +7,7 @@ import {
   converterParaUnidadeBase,
   custoPorUnidadeBase,
   dimensaoDe,
+  gerarAlertas,
   PricingError,
   saoCompativeis,
   unidadesCompativeis,
@@ -260,8 +261,8 @@ describe('cálculo da receita', () => {
     expect(calculo.custoExtras.toString()).toBe('1.005');
     expect(calculo.custoTotal.toString()).toBe('11.055');
     expect(calculo.custoPorPorcao.toString()).toBe('0.4422');
-    expect(calculo.precoSugeridoPorPorcao.toString()).toBe('1.1055');
-    expect(calculo.lucroPorPorcao.toString()).toBe('0.6633');
+    expect(calculo.precoSugeridoPorPorcao.toString()).toBe('1.11'); // 1,1055 sobe para o centavo seguinte
+    expect(calculo.lucroPorPorcao.toString()).toBe('0.6678');
     expect(calculo.markup.precoPorPorcao.toString()).toBe('0.70752');
     expect(calculo.markup.lucroPorPorcao.toString()).toBe('0.26532');
     expect(calculo.markup.margemRealPercentual.toString()).toBe('37.5');
@@ -335,13 +336,13 @@ describe('margem desejada', () => {
     expect(calculo.markup.margemRealPercentual.toFixed(6)).toBe('33.333333');
   });
 
-  it('o lucro corresponde exatamente à margem pedida sobre o preço', () => {
+  it('o lucro nunca fica abaixo da margem pedida sobre o preço', () => {
     const calculo = calcularReceita(receitaComCusto(10, { margemDesejadaPercentual: 30 }));
-    expect(calculo.precoSugeridoPorPorcao.toFixed(6)).toBe('14.285714'); // 10 / 0,7
-    expect(calculo.lucroPorPorcao.toFixed(6)).toBe('4.285714');
+    expect(calculo.precoSugeridoPorPorcao.toString()).toBe('14.29'); // 10 / 0,7 = 14,2857...
+    expect(calculo.lucroPorPorcao.toString()).toBe('4.29');
     expect(
-      calculo.lucroPorPorcao.div(calculo.precoSugeridoPorPorcao).times(100).toFixed(10),
-    ).toBe('30.0000000000');
+      calculo.lucroPorPorcao.div(calculo.precoSugeridoPorPorcao).times(100).gte(30),
+    ).toBe(true);
     expect(calculo.markup.precoPorPorcao.toString()).toBe('13');
     expect(calculo.markup.margemRealPercentual.toFixed(6)).toBe('23.076923');
   });
@@ -489,3 +490,338 @@ describe('validações', () => {
     expect(erro.detalhes).toEqual({ campo: 'aproveitamentoPercentual', indiceItem: 2 });
   });
 });
+
+describe('medidas caseiras', () => {
+  const manteiga: InsumoParaCalculo = {
+    unidadeCompra: 'G',
+    quantidadeEmbalagem: 200,
+    precoEmbalagem: 10,
+    aproveitamentoPercentual: 100,
+  };
+  const colher = { quantidade: 20, unidade: 'G' } as const;
+
+  it('multiplica o número de medidas pelo valor de cada uma', () => {
+    const item = calcularItem({ quantidade: 2, unidade: 'G', insumo: manteiga, medida: colher });
+    expect(item.quantidadeBase.toString()).toBe('40');
+    expect(item.custo.toString()).toBe('2');
+  });
+
+  it('aceita meia medida', () => {
+    const item = calcularItem({ quantidade: '0.5', unidade: 'G', insumo: manteiga, medida: colher });
+    expect(item.custo.toString()).toBe('0.5');
+  });
+
+  it('converte a unidade da medida para a unidade base', () => {
+    const item = calcularItem({
+      quantidade: 1,
+      unidade: 'G',
+      insumo: farinha,
+      medida: { quantidade: '0.12', unidade: 'KG' },
+    });
+    expect(item.quantidadeBase.toString()).toBe('120');
+    expect(item.custo.toString()).toBe('0.6588');
+  });
+
+  it('o valor da medida muda o custo: 1 colher de 12 g não custa o mesmo que 1 de 20 g', () => {
+    const custo = (gramas: number) =>
+      calcularItem({
+        quantidade: 1,
+        unidade: 'G',
+        insumo: manteiga,
+        medida: { quantidade: gramas, unidade: 'G' },
+      }).custo.toString();
+    expect(custo(12)).toBe('0.6');
+    expect(custo(20)).toBe('1');
+  });
+
+  it('recusa medida de volume em insumo de massa', () => {
+    const erro = erroDe(() =>
+      calcularItem({
+        quantidade: 1,
+        unidade: 'ML',
+        insumo: manteiga,
+        medida: { quantidade: 15, unidade: 'ML' },
+      }),
+    );
+    expect(erro.code).toBe('UNIDADES_INCOMPATIVEIS');
+  });
+
+  it('recusa medida de valor zero', () => {
+    const erro = erroDe(() =>
+      calcularItem({
+        quantidade: 1,
+        unidade: 'G',
+        insumo: manteiga,
+        medida: { quantidade: 0, unidade: 'G' },
+      }),
+    );
+    expect(erro.detalhes.campo).toBe('medidaCaseiraId');
+  });
+});
+
+describe('mão de obra', () => {
+  it('soma o tempo de trabalho ao custo total', () => {
+    const calculo = calcularReceita(
+      receitaComCusto(10, { rendimentoPorcoes: 5, tempoPreparoMinutos: 90, valorHoraTrabalho: 15 }),
+    );
+    expect(calculo.custoMaoDeObra.toString()).toBe('22.5');
+    expect(calculo.custoTotal.toString()).toBe('32.5');
+    expect(calculo.custoPorPorcao.toString()).toBe('6.5');
+  });
+
+  it('não aplica o percentual de custos extras sobre a mão de obra', () => {
+    const calculo = calcularReceita(
+      receitaComCusto(10, {
+        custosExtrasPercentual: 10,
+        tempoPreparoMinutos: 60,
+        valorHoraTrabalho: 20,
+      }),
+    );
+    expect(calculo.custoExtras.toString()).toBe('1');
+    expect(calculo.custoTotal.toString()).toBe('31');
+  });
+
+  it('sem tempo informado, o custo fica como antes', () => {
+    expect(calcularReceita(receitaComCusto(10)).custoMaoDeObra.toString()).toBe('0');
+  });
+
+  it.each([-1, 1.5])('recusa tempo inválido (%s)', (tempoPreparoMinutos) => {
+    const erro = erroDe(() => calcularReceita(receitaComCusto(10, { tempoPreparoMinutos })));
+    expect(erro.detalhes.campo).toBe('tempoPreparoMinutos');
+  });
+
+  it('recusa valor da hora negativo', () => {
+    const erro = erroDe(() => calcularReceita(receitaComCusto(10, { valorHoraTrabalho: -1 })));
+    expect(erro.detalhes.campo).toBe('valorHoraTrabalho');
+  });
+});
+
+describe('taxa de venda', () => {
+  it('o preço sugerido cobre a taxa e ainda entrega a margem pedida', () => {
+    const calculo = calcularReceita(
+      receitaComCusto(10, { margemDesejadaPercentual: 50, taxaVendaPercentual: 20 }),
+    );
+    expect(calculo.precoSugeridoPorPorcao.toString()).toBe('33.34'); // 10 / (1 − 0,5 − 0,2)
+    expect(calculo.taxaVendaPorPorcao.toString()).toBe('6.668');
+    expect(calculo.lucroPorPorcao.toString()).toBe('16.672');
+    expect(
+      calculo.lucroPorPorcao.div(calculo.precoSugeridoPorPorcao).times(100).gte(50),
+    ).toBe(true);
+  });
+
+  it('a comparação com markup também desconta a taxa', () => {
+    const calculo = calcularReceita(
+      receitaComCusto(10, { margemDesejadaPercentual: 50, taxaVendaPercentual: 20 }),
+    );
+    expect(calculo.markup.precoPorPorcao.toString()).toBe('15');
+    expect(calculo.markup.lucroPorPorcao.toString()).toBe('2');
+    expect(calculo.markup.margemRealPercentual.toFixed(2)).toBe('13.33');
+  });
+
+  it('aceita margem e taxa que somam exatamente 95%', () => {
+    const calculo = calcularReceita(
+      receitaComCusto(10, { margemDesejadaPercentual: 90, taxaVendaPercentual: 5 }),
+    );
+    expect(calculo.precoSugeridoPorPorcao.toString()).toBe('200');
+  });
+
+  it('recusa margem e taxa que somam mais de 95%', () => {
+    const erro = erroDe(() =>
+      calcularReceita(receitaComCusto(10, { margemDesejadaPercentual: 90, taxaVendaPercentual: 6 })),
+    );
+    expect(erro.detalhes.campo).toBe('taxaVendaPercentual');
+    expect(erro.message).toBe('A margem somada à taxa de venda não pode passar de 95%.');
+  });
+
+  it('recusa taxa negativa', () => {
+    const erro = erroDe(() => calcularReceita(receitaComCusto(10, { taxaVendaPercentual: -1 })));
+    expect(erro.detalhes.campo).toBe('taxaVendaPercentual');
+  });
+});
+
+describe('preço sugerido em centavos', () => {
+  function comCusto(preco: string, margemDesejadaPercentual: number) {
+    return calcularReceita({
+      rendimentoPorcoes: 1,
+      custosExtrasPercentual: 0,
+      margemDesejadaPercentual,
+      itens: [
+        {
+          quantidade: 1,
+          unidade: 'UN',
+          insumo: {
+            unidadeCompra: 'UN',
+            quantidadeEmbalagem: 1,
+            precoEmbalagem: preco,
+            aproveitamentoPercentual: 100,
+          },
+        },
+      ],
+    });
+  }
+
+  it('sobe para o centavo seguinte, para não entregar menos que a margem', () => {
+    // 0,4418 / 0,4 = 1,1045: arredondar para 1,10 daria só 59,8% de margem.
+    const calculo = comCusto('0.4418', 60);
+    expect(calculo.precoSugeridoPorPorcao.toString()).toBe('1.11');
+    expect(calculo.lucroPorPorcao.div(calculo.precoSugeridoPorPorcao).times(100).gte(60)).toBe(true);
+  });
+
+  it('não sobe quando o valor já é exato', () => {
+    expect(comCusto('10', 50).precoSugeridoPorPorcao.toString()).toBe('20');
+  });
+});
+
+describe('preço cobrado hoje', () => {
+  const receita = (preco: string | number, extras: Partial<ReceitaParaCalculo> = {}) =>
+    calcularReceita(
+      receitaComCusto(10, {
+        margemDesejadaPercentual: 50,
+        precoVendaPraticado: preco,
+        ...extras,
+      }),
+    ).praticado!;
+
+  it('mostra o prejuízo quando o preço não cobre o custo', () => {
+    const praticado = receita(8, { rendimentoPorcoes: 1 });
+    expect(praticado.situacao).toBe('PREJUIZO');
+    expect(praticado.lucroPorPorcao.toString()).toBe('-2');
+    expect(praticado.margemRealPercentual.toString()).toBe('-25');
+  });
+
+  it('soma o resultado da receita inteira', () => {
+    const calculo = calcularReceita(
+      receitaComCusto(50, { rendimentoPorcoes: 5, precoVendaPraticado: 8 }),
+    );
+    expect(calculo.praticado!.lucroPorPorcao.toString()).toBe('-2');
+    expect(calculo.praticado!.lucroPorReceita.toString()).toBe('-10');
+  });
+
+  it('avisa quando lucra, mas abaixo da margem desejada', () => {
+    const praticado = receita(15);
+    expect(praticado.situacao).toBe('ABAIXO_DA_META');
+    expect(praticado.margemRealPercentual.toFixed(2)).toBe('33.33');
+  });
+
+  it('confirma quando o preço entrega a margem', () => {
+    expect(receita(20).situacao).toBe('NA_META');
+  });
+
+  it('um preço que parece dar lucro vira prejuízo depois da taxa', () => {
+    const praticado = receita(11, { taxaVendaPercentual: 20 });
+    expect(praticado.taxaVendaPorPorcao.toString()).toBe('2.2');
+    expect(praticado.lucroPorPorcao.toString()).toBe('-1.2');
+    expect(praticado.situacao).toBe('PREJUIZO');
+  });
+
+  it('o preço sugerido sempre fica na meta', () => {
+    const sugerido = calcularReceita(
+      receitaComCusto(10, { margemDesejadaPercentual: 30, taxaVendaPercentual: 12 }),
+    ).precoSugeridoPorPorcao;
+    const praticado = calcularReceita(
+      receitaComCusto(10, {
+        margemDesejadaPercentual: 30,
+        taxaVendaPercentual: 12,
+        precoVendaPraticado: sugerido,
+      }),
+    ).praticado!;
+    expect(praticado.situacao).toBe('NA_META');
+  });
+
+  it('fica de fora quando não foi informado', () => {
+    expect(calcularReceita(receitaComCusto(10)).praticado).toBeNull();
+  });
+
+  it('recusa preço zero', () => {
+    const erro = erroDe(() => calcularReceita(receitaComCusto(10, { precoVendaPraticado: 0 })));
+    expect(erro.detalhes.campo).toBe('precoVendaPraticado');
+  });
+});
+
+describe('alertas', () => {
+  const HOJE = new Date('2026-11-05T12:00:00Z');
+  const comTrabalho = { tempoPreparoMinutos: 30, valorHoraTrabalho: 15 };
+
+  function alertas(itens: ItemParaCalculo[], extras: Partial<ReceitaParaCalculo> = comTrabalho) {
+    const receita: ReceitaParaCalculo = {
+      rendimentoPorcoes: 1,
+      custosExtrasPercentual: 0,
+      margemDesejadaPercentual: 30,
+      itens,
+      ...extras,
+    };
+    return gerarAlertas(receita, calcularReceita(receita), HOJE);
+  }
+
+  const diasAtras = (dias: number) => new Date(HOJE.getTime() - dias * 86_400_000);
+
+  it('não acusa nada em uma receita normal', () => {
+    expect(alertas([{ quantidade: 250, unidade: 'G', insumo: farinha }])).toEqual([]);
+  });
+
+  it('não acusa nada enquanto a receita não tem itens', () => {
+    expect(alertas([], {})).toEqual([]);
+  });
+
+  it('avisa que o tempo de trabalho não está no custo', () => {
+    const codigos = (extras: Partial<ReceitaParaCalculo>) =>
+      alertas([{ quantidade: 250, unidade: 'G', insumo: farinha }], extras).map((a) => a.codigo);
+
+    expect(codigos({})).toEqual(['SEM_MAO_DE_OBRA']);
+    expect(codigos({ tempoPreparoMinutos: 30 })).toEqual(['SEM_MAO_DE_OBRA']);
+    expect(codigos({ valorHoraTrabalho: 15 })).toEqual(['SEM_MAO_DE_OBRA']);
+  });
+
+  it('acusa o clássico "2" em g quando a pessoa pensou em 2 kg', () => {
+    const [alerta] = alertas([
+      { quantidade: 250, unidade: 'G', insumo: leiteEmGramas() },
+      { quantidade: 1, unidade: 'G', insumo: { ...farinha, nome: 'Farinha' } },
+    ]);
+    expect(alerta).toEqual({
+      codigo: 'CUSTO_MUITO_BAIXO',
+      mensagem: 'Farinha custa menos de 1 centavo nesta receita. Confira a unidade: é g ou kg?',
+      indiceItem: 1,
+    });
+  });
+
+  it('acusa insumo com preço zero', () => {
+    const [alerta] = alertas([
+      { quantidade: 1, unidade: 'KG', insumo: { ...farinha, nome: 'Farinha', precoEmbalagem: 0 } },
+    ]);
+    expect(alerta.codigo).toBe('INSUMO_SEM_PRECO');
+    expect(alerta.mensagem).toBe('Farinha está com preço zero e entra de graça na conta.');
+  });
+
+  it('acusa quantidade absurda, mas aceita até 20 embalagens', () => {
+    expect(alertas([{ quantidade: 20, unidade: 'KG', insumo: farinha }])).toEqual([]);
+    expect(alertas([{ quantidade: 21, unidade: 'KG', insumo: farinha }])[0].codigo).toBe(
+      'QUANTIDADE_MUITO_ALTA',
+    );
+  });
+
+  it('considera a medida caseira ao medir a quantidade', () => {
+    const [alerta] = alertas([
+      {
+        quantidade: 200,
+        unidade: 'G',
+        insumo: farinha,
+        medida: { quantidade: 120, unidade: 'G' },
+      },
+    ]);
+    expect(alerta.codigo).toBe('QUANTIDADE_MUITO_ALTA');
+  });
+
+  it('avisa de preço não conferido há mais de 60 dias', () => {
+    const insumo = (dias: number) => ({ ...farinha, nome: 'Farinha', precoConferidoEm: diasAtras(dias) });
+
+    expect(alertas([{ quantidade: 250, unidade: 'G', insumo: insumo(59) }])).toEqual([]);
+    expect(alertas([{ quantidade: 250, unidade: 'G', insumo: insumo(61) }])[0].codigo).toBe(
+      'PRECO_ANTIGO',
+    );
+  });
+});
+
+/** Insumo em gramas de custo normal, para compor receitas nos testes de alerta. */
+function leiteEmGramas(): InsumoParaCalculo {
+  return { unidadeCompra: 'G', quantidadeEmbalagem: 395, precoEmbalagem: '6.50', aproveitamentoPercentual: 100 };
+}

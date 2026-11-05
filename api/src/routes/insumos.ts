@@ -2,13 +2,25 @@ import { Router, type Request } from 'express';
 import { z } from 'zod';
 
 import { saoCompativeis } from '../domain/pricing';
-import type { Insumo } from '../generated/prisma/client';
+import type { Insumo, MedidaCaseira } from '../generated/prisma/client';
 import { autenticar, userIdAutenticado } from '../http/autenticar';
 import { AppError } from '../http/errors';
 import { decimalSchema, lerId, unidadeSchema } from '../http/validacao';
 import { prisma } from '../lib/prisma';
 
-const insumoSchema = z.object({
+const medidaSchema = z.object({
+  id: z.number().int().positive().optional(),
+  nome: z
+    .string({ error: 'Informe o nome da medida.' })
+    .trim()
+    .min(1, 'Informe o nome da medida.')
+    .max(60, 'O nome da medida deve ter no máximo 60 caracteres.'),
+  quantidade: decimalSchema({ nome: 'O valor da medida', positivo: true, maximo: 999999, casas: 3 }),
+  unidade: unidadeSchema,
+});
+
+const insumoSchema = z
+  .object({
   nome: z
     .string({ error: 'Informe o nome do insumo.' })
     .trim()
@@ -28,9 +40,36 @@ const insumoSchema = z.object({
     maximo: 100,
     casas: 2,
   }).default('100'),
-});
+  // Sem o campo, as medidas atuais ficam como estão.
+  medidas: z.array(medidaSchema).max(10, 'Cadastre no máximo 10 medidas por insumo.').optional(),
+  })
+  .superRefine((insumo, ctx) => {
+    const nomes = new Set<string>();
+    insumo.medidas?.forEach((medida, indice) => {
+      if (!saoCompativeis(medida.unidade, insumo.unidadeCompra)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['medidas', indice, 'unidade'],
+          message: 'A medida precisa usar o mesmo tipo de unidade da embalagem.',
+        });
+      }
+      const nome = medida.nome.toLowerCase();
+      if (nomes.has(nome)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['medidas', indice, 'nome'],
+          message: 'Já existe uma medida com este nome.',
+        });
+      }
+      nomes.add(nome);
+    });
+  });
 
-function paraJson(insumo: Insumo) {
+type InsumoComMedidas = Insumo & { medidas: MedidaCaseira[] };
+
+const comMedidas = { medidas: { orderBy: { id: 'asc' } } } as const;
+
+function paraJson(insumo: InsumoComMedidas) {
   return {
     id: insumo.id,
     nome: insumo.nome,
@@ -38,6 +77,12 @@ function paraJson(insumo: Insumo) {
     quantidadeEmbalagem: insumo.quantidadeEmbalagem.toString(),
     precoEmbalagem: insumo.precoEmbalagem.toFixed(2),
     aproveitamentoPercentual: insumo.aproveitamentoPercentual.toString(),
+    medidas: insumo.medidas.map((medida) => ({
+      id: medida.id,
+      nome: medida.nome,
+      quantidade: medida.quantidade.toString(),
+      unidade: medida.unidade,
+    })),
     createdAt: insumo.createdAt,
     updatedAt: insumo.updatedAt,
   };
@@ -48,12 +93,15 @@ function naoEncontrado(): AppError {
 }
 
 /** Busca o insumo da URL, garantindo que ele pertence ao usuário logado. */
-async function buscarInsumoDoUsuario(req: Request): Promise<Insumo> {
+async function buscarInsumoDoUsuario(req: Request): Promise<InsumoComMedidas> {
   const id = lerId(req.params.id);
   const insumo =
     id === null
       ? null
-      : await prisma.insumo.findFirst({ where: { id, userId: userIdAutenticado(req) } });
+      : await prisma.insumo.findFirst({
+          where: { id, userId: userIdAutenticado(req) },
+          include: comMedidas,
+        });
 
   if (!insumo) {
     throw naoEncontrado();
@@ -70,6 +118,49 @@ function receitasQueUsam(insumo: Insumo) {
   });
 }
 
+/**
+ * Compara as medidas enviadas com as salvas. Medida usada em receita não pode sumir, porque a
+ * receita perderia a quantidade; a alteração do valor é permitida e recalcula as receitas.
+ */
+async function sincronizarMedidas(atual: InsumoComMedidas, medidas: z.output<typeof medidaSchema>[]) {
+  const idsAtuais = new Set(atual.medidas.map(({ id }) => id));
+
+  medidas.forEach(({ id }, indice) => {
+    if (id !== undefined && !idsAtuais.has(id)) {
+      throw new AppError(400, 'DADOS_INVALIDOS', 'Os dados enviados são inválidos.', [
+        { campo: `medidas.${indice}.id`, mensagem: 'Medida não encontrada.' },
+      ]);
+    }
+  });
+
+  const mantidas = new Set(medidas.map(({ id }) => id));
+  const removidas = atual.medidas.filter(({ id }) => !mantidas.has(id));
+
+  const emUso = await prisma.receita.findMany({
+    where: { itens: { some: { medidaCaseiraId: { in: removidas.map(({ id }) => id) } } } },
+    select: { id: true, nome: true },
+    orderBy: { nome: 'asc' },
+  });
+  if (emUso.length > 0) {
+    throw new AppError(
+      409,
+      'MEDIDA_EM_USO',
+      `Não é possível remover essa medida, porque ela é usada em: ${listarNomes(emUso)}.`,
+      { receitas: emUso },
+    );
+  }
+
+  return {
+    deleteMany: { id: { in: removidas.map(({ id }) => id) } },
+    update: medidas.flatMap(({ id, nome, quantidade, unidade }) =>
+      id === undefined ? [] : [{ where: { id }, data: { nome, quantidade, unidade } }],
+    ),
+    create: medidas
+      .filter(({ id }) => id === undefined)
+      .map(({ nome, quantidade, unidade }) => ({ nome, quantidade, unidade })),
+  };
+}
+
 function listarNomes(receitas: { nome: string }[]): string {
   return receitas.map((receita) => `"${receita.nome}"`).join(', ');
 }
@@ -81,15 +172,21 @@ insumosRouter.use('/insumos', autenticar);
 insumosRouter.get('/insumos', async (req, res) => {
   const insumos = await prisma.insumo.findMany({
     where: { userId: userIdAutenticado(req) },
+    include: comMedidas,
     orderBy: { nome: 'asc' },
   });
   res.json({ insumos: insumos.map(paraJson) });
 });
 
 insumosRouter.post('/insumos', async (req, res) => {
-  const dados = insumoSchema.parse(req.body);
+  const { medidas = [], ...dados } = insumoSchema.parse(req.body);
   const insumo = await prisma.insumo.create({
-    data: { ...dados, userId: userIdAutenticado(req) },
+    data: {
+      ...dados,
+      userId: userIdAutenticado(req),
+      medidas: { create: medidas.map(({ nome, quantidade, unidade }) => ({ nome, quantidade, unidade })) },
+    },
+    include: comMedidas,
   });
   res.status(201).json({ insumo: paraJson(insumo) });
 });
@@ -100,10 +197,11 @@ insumosRouter.get('/insumos/:id', async (req, res) => {
 
 insumosRouter.put('/insumos/:id', async (req, res) => {
   const atual = await buscarInsumoDoUsuario(req);
-  const dados = insumoSchema.parse(req.body);
+  const { medidas, ...dados } = insumoSchema.parse(req.body);
+  const mudouTipoDeUnidade = !saoCompativeis(dados.unidadeCompra, atual.unidadeCompra);
 
   // Trocar massa por volume (ou vice-versa) quebraria as receitas que já usam o insumo.
-  if (!saoCompativeis(dados.unidadeCompra, atual.unidadeCompra)) {
+  if (mudouTipoDeUnidade) {
     const receitas = await receitasQueUsam(atual);
     if (receitas.length > 0) {
       throw new AppError(
@@ -115,7 +213,17 @@ insumosRouter.put('/insumos/:id', async (req, res) => {
     }
   }
 
-  const insumo = await prisma.insumo.update({ where: { id: atual.id }, data: dados });
+  // Medidas de massa não servem para um insumo que passou a ser medido em volume.
+  const novasMedidas = medidas ?? (mudouTipoDeUnidade ? [] : undefined);
+
+  const insumo = await prisma.insumo.update({
+    where: { id: atual.id },
+    data: {
+      ...dados,
+      medidas: novasMedidas && (await sincronizarMedidas(atual, novasMedidas)),
+    },
+    include: comMedidas,
+  });
   res.json({ insumo: paraJson(insumo) });
 });
 

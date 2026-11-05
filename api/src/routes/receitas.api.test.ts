@@ -61,14 +61,23 @@ function brigadeiro(insumos: InsumosDoBrigadeiro) {
   };
 }
 
-// Ingredientes 10,05; extras 1,005; total 11,055; por porção 0,4422; preço 1,1055.
+const ALERTA_SEM_MAO_DE_OBRA = {
+  codigo: 'SEM_MAO_DE_OBRA',
+  mensagem: 'Seu tempo de trabalho não está no custo: o lucro mostrado ainda inclui o seu pagamento.',
+};
+
+// Ingredientes 10,05; extras 1,005; total 11,055; por porção 0,4422; preço 1,1055 sobe para 1,11.
 const CALCULO_DO_BRIGADEIRO = {
   custoIngredientes: '10.05',
   custoExtras: '1.01',
+  custoMaoDeObra: '0.00',
   custoTotal: '11.06',
   custoPorPorcao: '0.44',
   precoSugeridoPorPorcao: '1.11',
-  lucroPorPorcao: '0.66',
+  taxaVendaPorPorcao: '0.00',
+  lucroPorPorcao: '0.67',
+  praticado: null,
+  alertas: [ALERTA_SEM_MAO_DE_OBRA],
   markup: { precoPorPorcao: '0.71', lucroPorPorcao: '0.27', margemRealPercentual: '37.50' },
 };
 
@@ -139,6 +148,8 @@ describe('POST /receitas', () => {
         insumoUnidadeCompra: 'G',
         quantidade: '395',
         unidade: 'G',
+        medidaCaseiraId: null,
+        medidaNome: null,
         custo: '6.50',
       },
       {
@@ -148,6 +159,8 @@ describe('POST /receitas', () => {
         insumoUnidadeCompra: 'G',
         quantidade: '30',
         unidade: 'G',
+        medidaCaseiraId: null,
+        medidaNome: null,
         custo: '1.35',
       },
       {
@@ -157,6 +170,8 @@ describe('POST /receitas', () => {
         insumoUnidadeCompra: 'G',
         quantidade: '20',
         unidade: 'G',
+        medidaCaseiraId: null,
+        medidaNome: null,
         custo: '1.00',
       },
       {
@@ -166,6 +181,8 @@ describe('POST /receitas', () => {
         insumoUnidadeCompra: 'G',
         quantidade: '0.05',
         unidade: 'KG',
+        medidaCaseiraId: null,
+        medidaNome: null,
         custo: '1.20',
       },
     ]);
@@ -317,6 +334,7 @@ describe('GET /receitas', () => {
         rendimentoPorcoes: 25,
         custoPorPorcao: '0.44',
         precoSugeridoPorPorcao: '1.11',
+        praticado: null,
         updatedAt: expect.any(String),
       },
       {
@@ -325,6 +343,7 @@ describe('GET /receitas', () => {
         rendimentoPorcoes: 1,
         custoPorPorcao: '10.00',
         precoSugeridoPorPorcao: '20.00',
+        praticado: null,
         updatedAt: expect.any(String),
       },
     ]);
@@ -497,10 +516,14 @@ describe('POST /receitas/calcular', () => {
       itens: [],
       custoIngredientes: '0.00',
       custoExtras: '0.00',
+      custoMaoDeObra: '0.00',
       custoTotal: '0.00',
       custoPorPorcao: '0.00',
       precoSugeridoPorPorcao: '0.00',
+      taxaVendaPorPorcao: '0.00',
       lucroPorPorcao: '0.00',
+      praticado: null,
+      alertas: [],
       markup: { precoPorPorcao: '0.00', lucroPorPorcao: '0.00', margemRealPercentual: '0.00' },
     });
   });
@@ -602,5 +625,207 @@ describe('isolamento entre usuários', () => {
       expect(JSON.stringify(resposta.body)).not.toContain('99.99');
     }
     expect(await prisma.receita.count({ where: { userId: joao.id } })).toBe(0);
+  });
+});
+
+describe('custo real da receita', () => {
+  it('guarda mão de obra, taxa e preço cobrado, e mostra o prejuízo real', async () => {
+    const usuario = await criarUsuario();
+    const { resposta } = await criarReceitaSimples(usuario, {
+      rendimentoPorcoes: 2,
+      tempoPreparoMinutos: 60,
+      valorHoraTrabalho: '10',
+      taxaVendaPercentual: '10',
+      precoVendaPraticado: '11',
+    });
+
+    expect(resposta.status).toBe(201);
+    expect(resposta.body.receita).toMatchObject({
+      tempoPreparoMinutos: 60,
+      valorHoraTrabalho: '10',
+      taxaVendaPercentual: '10',
+      precoVendaPraticado: '11.00',
+    });
+    // Ingredientes 10 + mão de obra 10 = 20; por porção 10. Preço 10 / (1 − 0,5 − 0,1) = 25.
+    expect(resposta.body.receita.calculo).toMatchObject({
+      custoMaoDeObra: '10.00',
+      custoPorPorcao: '10.00',
+      precoSugeridoPorPorcao: '25.00',
+      taxaVendaPorPorcao: '2.50',
+      lucroPorPorcao: '12.50',
+      // A R$ 11,00 sobram 9,90 depois da taxa: R$ 0,10 de prejuízo por porção.
+      praticado: {
+        precoPorPorcao: '11.00',
+        taxaVendaPorPorcao: '1.10',
+        lucroPorPorcao: '-0.10',
+        lucroPorReceita: '-0.20',
+        margemRealPercentual: '-0.91',
+        situacao: 'PREJUIZO',
+      },
+      alertas: [],
+    });
+  });
+
+  it('a lista mostra quando o preço cobrado dá prejuízo', async () => {
+    const usuario = await criarUsuario();
+    await criarReceitaSimples(usuario, { precoVendaPraticado: '8' });
+
+    const resposta = await request(app).get('/receitas').set(usuario.auth);
+
+    expect(resposta.body.receitas[0].praticado).toMatchObject({
+      lucroPorPorcao: '-2.00',
+      situacao: 'PREJUIZO',
+    });
+  });
+
+  it('o preço cobrado pode ser removido', async () => {
+    const usuario = await criarUsuario();
+    const { corpo, resposta: criada } = await criarReceitaSimples(usuario, { precoVendaPraticado: '8' });
+
+    const resposta = await request(app)
+      .put(`/receitas/${criada.body.receita.id}`)
+      .set(usuario.auth)
+      .send({ ...corpo, precoVendaPraticado: null });
+
+    expect(resposta.body.receita.precoVendaPraticado).toBeNull();
+    expect(resposta.body.receita.calculo.praticado).toBeNull();
+  });
+
+  it.each([
+    ['taxa que estoura o limite com a margem', { margemDesejadaPercentual: '90', taxaVendaPercentual: '6' }, 'taxaVendaPercentual'],
+    ['tempo negativo', { tempoPreparoMinutos: -1 }, 'tempoPreparoMinutos'],
+    ['tempo fracionado', { tempoPreparoMinutos: 1.5 }, 'tempoPreparoMinutos'],
+    ['valor da hora negativo', { valorHoraTrabalho: '-1' }, 'valorHoraTrabalho'],
+    ['preço cobrado zero', { precoVendaPraticado: '0' }, 'precoVendaPraticado'],
+  ])('recusa %s', async (_caso, dados, campo) => {
+    const usuario = await criarUsuario();
+    const { resposta } = await criarReceitaSimples(usuario, dados);
+
+    expect(resposta.status).toBe(400);
+    expect(resposta.body.error.details[0].campo).toBe(campo);
+  });
+
+  it('o cálculo ao vivo devolve os alertas apontando o item', async () => {
+    const usuario = await criarUsuario();
+    const farinha = await criarInsumo(usuario, {
+      nome: 'Farinha',
+      unidadeCompra: 'KG',
+      quantidadeEmbalagem: '1',
+      precoEmbalagem: '5.49',
+    });
+
+    const resposta = await request(app)
+      .post('/receitas/calcular')
+      .set(usuario.auth)
+      .send({
+        rendimentoPorcoes: 1,
+        margemDesejadaPercentual: '30',
+        tempoPreparoMinutos: 30,
+        valorHoraTrabalho: '15',
+        itens: [{ insumoId: farinha, quantidade: '1', unidade: 'G' }],
+      });
+
+    expect(resposta.body.calculo.alertas).toEqual([
+      {
+        codigo: 'CUSTO_MUITO_BAIXO',
+        mensagem: 'Farinha custa menos de 1 centavo nesta receita. Confira a unidade: é g ou kg?',
+        indiceItem: 0,
+      },
+    ]);
+  });
+});
+
+describe('medidas caseiras na receita', () => {
+  async function criarManteiga(usuario: UsuarioDeTeste) {
+    const resposta = await request(app)
+      .post('/insumos')
+      .set(usuario.auth)
+      .send({
+        nome: 'Manteiga',
+        unidadeCompra: 'G',
+        quantidadeEmbalagem: '200',
+        precoEmbalagem: '10',
+        medidas: [{ nome: 'Colher de sopa', quantidade: '20', unidade: 'G' }],
+      });
+    return { insumoId: resposta.body.insumo.id, medida: resposta.body.insumo.medidas[0] };
+  }
+
+  const corpo = (insumoId: number, medidaCaseiraId: number) => ({
+    nome: 'Bolo',
+    rendimentoPorcoes: 1,
+    margemDesejadaPercentual: '0',
+    itens: [{ insumoId, quantidade: '2', unidade: 'G', medidaCaseiraId }],
+  });
+
+  it('calcula o custo com o valor da medida e mostra o nome dela', async () => {
+    const usuario = await criarUsuario();
+    const { insumoId, medida } = await criarManteiga(usuario);
+
+    const resposta = await request(app)
+      .post('/receitas')
+      .set(usuario.auth)
+      .send(corpo(insumoId, medida.id));
+
+    expect(resposta.status).toBe(201);
+    expect(resposta.body.receita.itens[0]).toMatchObject({
+      quantidade: '2',
+      medidaCaseiraId: medida.id,
+      medidaNome: 'Colher de sopa',
+      custo: '2.00',
+    });
+  });
+
+  it('o cálculo ao vivo também usa a medida', async () => {
+    const usuario = await criarUsuario();
+    const { insumoId, medida } = await criarManteiga(usuario);
+    const { nome: _nome, ...dados } = corpo(insumoId, medida.id);
+
+    const resposta = await request(app).post('/receitas/calcular').set(usuario.auth).send(dados);
+
+    expect(resposta.body.calculo.custoIngredientes).toBe('2.00');
+  });
+
+  it('pesar a colher e corrigir a medida recalcula as receitas', async () => {
+    const usuario = await criarUsuario();
+    const { insumoId, medida } = await criarManteiga(usuario);
+    const criada = await request(app)
+      .post('/receitas')
+      .set(usuario.auth)
+      .send(corpo(insumoId, medida.id));
+
+    await request(app)
+      .put(`/insumos/${insumoId}`)
+      .set(usuario.auth)
+      .send({
+        nome: 'Manteiga',
+        unidadeCompra: 'G',
+        quantidadeEmbalagem: '200',
+        precoEmbalagem: '10',
+        medidas: [{ ...medida, quantidade: '14' }],
+      });
+
+    const resposta = await request(app)
+      .get(`/receitas/${criada.body.receita.id}`)
+      .set(usuario.auth);
+
+    expect(resposta.body.receita.itens[0].custo).toBe('1.40');
+  });
+
+  it('recusa medida que não é do insumo escolhido', async () => {
+    const usuario = await criarUsuario();
+    const { medida } = await criarManteiga(usuario);
+    const outro = await criarInsumo(usuario, {
+      nome: 'Açúcar',
+      unidadeCompra: 'G',
+      quantidadeEmbalagem: '1000',
+      precoEmbalagem: '5',
+    });
+
+    const resposta = await request(app).post('/receitas').set(usuario.auth).send(corpo(outro, medida.id));
+
+    expect(resposta.status).toBe(400);
+    expect(resposta.body.error.details).toEqual([
+      { campo: 'itens.0.medidaCaseiraId', mensagem: 'Medida caseira não encontrada.' },
+    ]);
   });
 });
