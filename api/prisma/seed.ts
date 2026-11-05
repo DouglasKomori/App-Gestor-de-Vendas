@@ -23,22 +23,45 @@ interface InsumoDeExemplo {
   quantidadeEmbalagem: string;
   precoEmbalagem: string;
   aproveitamentoPercentual?: string;
+  medidas?: { nome: string; quantidade: string; unidade: Unidade }[];
 }
 
 const INSUMOS = {
   leiteCondensado: { nome: 'Leite condensado', unidadeCompra: 'G', quantidadeEmbalagem: '395', precoEmbalagem: '6.50' },
   chocolateEmPo: { nome: 'Chocolate em pó 50%', unidadeCompra: 'G', quantidadeEmbalagem: '200', precoEmbalagem: '9.00' },
-  manteiga: { nome: 'Manteiga', unidadeCompra: 'G', quantidadeEmbalagem: '200', precoEmbalagem: '10.00' },
+  manteiga: {
+    nome: 'Manteiga',
+    unidadeCompra: 'G',
+    quantidadeEmbalagem: '200',
+    precoEmbalagem: '10.00',
+    medidas: [{ nome: 'Colher de sopa', quantidade: '20', unidade: 'G' }],
+  },
   granulado: { nome: 'Granulado', unidadeCompra: 'G', quantidadeEmbalagem: '500', precoEmbalagem: '12.00' },
   forminha: { nome: 'Forminha nº 5', unidadeCompra: 'UN', quantidadeEmbalagem: '100', precoEmbalagem: '4.00' },
   // Insumos com perda: casca, aparas e limpeza reduzem o que é aproveitado.
   frango: { nome: 'Peito de frango', unidadeCompra: 'KG', quantidadeEmbalagem: '1', precoEmbalagem: '22.00', aproveitamentoPercentual: '85' },
-  cebola: { nome: 'Cebola', unidadeCompra: 'KG', quantidadeEmbalagem: '1', precoEmbalagem: '5.00', aproveitamentoPercentual: '88' },
+  cebola: {
+    nome: 'Cebola',
+    unidadeCompra: 'KG',
+    quantidadeEmbalagem: '1',
+    precoEmbalagem: '5.00',
+    aproveitamentoPercentual: '88',
+    medidas: [{ nome: 'Cebola pequena', quantidade: '100', unidade: 'G' }],
+  },
   alho: { nome: 'Alho', unidadeCompra: 'G', quantidadeEmbalagem: '200', precoEmbalagem: '6.00', aproveitamentoPercentual: '90' },
   cenoura: { nome: 'Cenoura', unidadeCompra: 'KG', quantidadeEmbalagem: '1', precoEmbalagem: '6.00', aproveitamentoPercentual: '85' },
   arroz: { nome: 'Arroz', unidadeCompra: 'KG', quantidadeEmbalagem: '5', precoEmbalagem: '28.00' },
   feijao: { nome: 'Feijão carioca', unidadeCompra: 'KG', quantidadeEmbalagem: '1', precoEmbalagem: '8.50' },
-  oleo: { nome: 'Óleo de soja', unidadeCompra: 'ML', quantidadeEmbalagem: '900', precoEmbalagem: '7.50' },
+  oleo: {
+    nome: 'Óleo de soja',
+    unidadeCompra: 'ML',
+    quantidadeEmbalagem: '900',
+    precoEmbalagem: '7.50',
+    medidas: [
+      { nome: 'Colher de sopa', quantidade: '15', unidade: 'ML' },
+      { nome: 'Xícara', quantidade: '240', unidade: 'ML' },
+    ],
+  },
   embalagemMarmita: { nome: 'Embalagem de marmita', unidadeCompra: 'UN', quantidadeEmbalagem: '50', precoEmbalagem: '35.00' },
   farinha: { nome: 'Farinha de trigo', unidadeCompra: 'KG', quantidadeEmbalagem: '1', precoEmbalagem: '5.49' },
   acucar: { nome: 'Açúcar', unidadeCompra: 'KG', quantidadeEmbalagem: '1', precoEmbalagem: '4.80' },
@@ -54,8 +77,13 @@ interface ReceitaDeExemplo {
   rendimentoPorcoes: number;
   custosExtrasPercentual: string;
   margemDesejadaPercentual: string;
+  tempoPreparoMinutos: number;
+  valorHoraTrabalho: string;
+  taxaVendaPercentual: string;
+  precoVendaPraticado: string;
   observacoes: string;
-  itens: [insumo: ChaveDeInsumo, quantidade: string, unidade: Unidade][];
+  /** Com o nome de uma medida caseira no fim, a quantidade é o número de medidas. */
+  itens: [insumo: ChaveDeInsumo, quantidade: string, unidade: Unidade, medida?: string][];
 }
 
 const RECEITAS: ReceitaDeExemplo[] = [
@@ -63,12 +91,16 @@ const RECEITAS: ReceitaDeExemplo[] = [
     nome: 'Brigadeiro tradicional',
     rendimentoPorcoes: 25,
     custosExtrasPercentual: '10',
-    margemDesejadaPercentual: '60',
+    margemDesejadaPercentual: '40',
+    tempoPreparoMinutos: 60,
+    valorHoraTrabalho: '15.00',
+    taxaVendaPercentual: '4',
+    precoVendaPraticado: '2.00',
     observacoes: 'Rende 25 brigadeiros de 20 g. Enrolar ainda morno, com as mãos untadas.',
     itens: [
       ['leiteCondensado', '395', 'G'],
       ['chocolateEmPo', '30', 'G'],
-      ['manteiga', '20', 'G'],
+      ['manteiga', '1', 'G', 'Colher de sopa'],
       ['granulado', '50', 'G'],
       ['forminha', '25', 'UN'],
     ],
@@ -77,16 +109,21 @@ const RECEITAS: ReceitaDeExemplo[] = [
     nome: 'Marmita de frango',
     rendimentoPorcoes: 5,
     custosExtrasPercentual: '12',
-    margemDesejadaPercentual: '45',
+    margemDesejadaPercentual: '20',
+    tempoPreparoMinutos: 60,
+    valorHoraTrabalho: '15.00',
+    // Exemplo de venda por aplicativo: comissão de 23% mais 3,2% de pagamento online.
+    taxaVendaPercentual: '26.2',
+    precoVendaPraticado: '15.00',
     observacoes: 'Frango grelhado, arroz, feijão e cenoura refogada. Consumir em até 3 dias na geladeira.',
     itens: [
       ['frango', '750', 'G'],
       ['arroz', '0.5', 'KG'],
       ['feijao', '300', 'G'],
       ['cenoura', '200', 'G'],
-      ['cebola', '100', 'G'],
+      ['cebola', '1', 'G', 'Cebola pequena'],
       ['alho', '15', 'G'],
-      ['oleo', '30', 'ML'],
+      ['oleo', '2', 'ML', 'Colher de sopa'],
       ['embalagemMarmita', '5', 'UN'],
     ],
   },
@@ -94,7 +131,11 @@ const RECEITAS: ReceitaDeExemplo[] = [
     nome: 'Bolo de cenoura com cobertura',
     rendimentoPorcoes: 12,
     custosExtrasPercentual: '10',
-    margemDesejadaPercentual: '50',
+    margemDesejadaPercentual: '40',
+    tempoPreparoMinutos: 45,
+    valorHoraTrabalho: '15.00',
+    taxaVendaPercentual: '0',
+    precoVendaPraticado: '2.00',
     observacoes: 'Rende 12 fatias. Assar a 180 °C por cerca de 40 minutos.',
     itens: [
       ['cenoura', '300', 'G'],
@@ -105,7 +146,7 @@ const RECEITAS: ReceitaDeExemplo[] = [
       ['fermento', '15', 'G'],
       ['chocolateEmPo', '60', 'G'],
       ['leite', '100', 'ML'],
-      ['manteiga', '20', 'G'],
+      ['manteiga', '1', 'G', 'Colher de sopa'],
     ],
   },
 ];
@@ -128,10 +169,13 @@ async function main() {
     data: { nome: DEMO.nome, email: DEMO.email, senhaHash: await bcrypt.hash(DEMO.senha, 10) },
   });
 
-  const idDoInsumo = {} as Record<ChaveDeInsumo, number>;
+  const insumos = {} as Record<ChaveDeInsumo, { id: number; medidas: { id: number; nome: string }[] }>;
   for (const chave of Object.keys(INSUMOS) as ChaveDeInsumo[]) {
-    const insumo = await prisma.insumo.create({ data: { ...INSUMOS[chave], userId: user.id } });
-    idDoInsumo[chave] = insumo.id;
+    const { medidas = [], ...dados }: InsumoDeExemplo = INSUMOS[chave];
+    insumos[chave] = await prisma.insumo.create({
+      data: { ...dados, userId: user.id, medidas: { create: medidas } },
+      include: { medidas: true },
+    });
   }
 
   for (const { itens, ...receita } of RECEITAS) {
@@ -140,10 +184,11 @@ async function main() {
         ...receita,
         userId: user.id,
         itens: {
-          create: itens.map(([insumo, quantidade, unidade]) => ({
-            insumoId: idDoInsumo[insumo],
+          create: itens.map(([insumo, quantidade, unidade, medida]) => ({
+            insumoId: insumos[insumo].id,
             quantidade,
             unidade,
+            medidaCaseiraId: insumos[insumo].medidas.find(({ nome }) => nome === medida)?.id ?? null,
           })),
         },
       },

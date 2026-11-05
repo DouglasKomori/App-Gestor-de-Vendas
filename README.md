@@ -6,7 +6,8 @@ vendendo no prejuízo sem perceber. No app, a pessoa:
 
 1. cadastra os **insumos** com o preço pago na embalagem (ex.: farinha, 1 kg por R$ 5,49);
 2. monta as **fichas técnicas** das receitas, com os insumos e as quantidades usadas;
-3. vê na hora o **custo total**, o **custo por porção** e o **preço de venda sugerido**.
+3. vê na hora o **custo total**, o **custo por porção** e o **preço de venda sugerido**;
+4. compara com o **preço que cobra hoje** e descobre se está lucrando de verdade.
 
 Projeto acadêmico.
 
@@ -116,25 +117,27 @@ Se mudar o `.env` com o app aberto, recarregue o app (aperte `r` no terminal do 
 | Email | `demo@gestordevendas.app` |
 | Senha | `demo12345` |
 
-| Receita | Rende | Custo por porção | Preço sugerido |
-| --- | --- | --- | --- |
-| Brigadeiro tradicional | 25 | R$ 0,49 | R$ 1,22 |
-| Marmita de frango | 5 | R$ 6,94 | R$ 12,62 |
-| Bolo de cenoura com cobertura | 12 | R$ 1,25 | R$ 2,50 |
+| Receita | Rende | Custo por porção | Preço sugerido | Cobrando hoje |
+| --- | --- | --- | --- | --- |
+| Brigadeiro tradicional | 25 | R$ 1,09 | R$ 1,94 | R$ 2,00: lucro de R$ 0,83, dentro da meta |
+| Marmita de frango | 5 | R$ 9,94 | R$ 18,48 | R$ 15,00: lucro de R$ 1,13, abaixo da meta |
+| Bolo de cenoura com cobertura | 12 | R$ 2,19 | R$ 3,65 | R$ 2,00: prejuízo de R$ 0,19 por fatia |
 
 O comando pode ser repetido: ele apaga e recria só a conta de demonstração, sem tocar nas outras.
 
 ### Roteiro sugerido para a apresentação
 
-1. Entre com a conta de demonstração e mostre a lista de receitas com custo e preço sugerido.
-2. Abra a **Marmita de frango**: custo de cada insumo, custo total, preço sugerido e lucro.
-3. Mostre o quadro **Margem ou markup?**: com 45% de margem o preço é R$ 12,62; somando 45% em
-   cima do custo seria R$ 10,07, e a margem real cairia para 31,03%.
-4. Na aba **Insumos**, abra o **Peito de frango** e mostre o aproveitamento de 85%: o quilo custa
-   R$ 22,00, mas só 850 g viram comida.
-5. Aumente o preço do frango e volte à receita: custo e preço sugerido mudam sozinhos, porque
-   nada é salvo calculado.
-6. Crie uma receita nova e mostre o cálculo atualizando enquanto você digita as quantidades.
+1. Entre com a conta de demonstração. A lista de receitas já mostra que o **Bolo de cenoura** dá
+   prejuízo: quem vende a R$ 2,00 acha que lucra, porque os ingredientes custam R$ 1,14 por fatia.
+2. Abra o bolo: somando gás e 45 minutos de trabalho, o custo real é R$ 2,19.
+3. Abra a **Marmita de frango**: a R$ 15,00 parece boa, mas a taxa do aplicativo leva R$ 3,93 de
+   cada venda e sobra R$ 1,13. A receita usa "1 cebola pequena" e "2 colheres de óleo".
+4. Na aba **Insumos**, abra a **Manteiga** e mostre a medida "colher de sopa = 20 g". Troque para
+   14 g e volte à receita: o custo muda sozinho, porque nada é salvo calculado.
+5. Mostre o **Peito de frango** com aproveitamento de 85%: o quilo custa R$ 22,00, mas só 850 g
+   viram comida.
+6. Crie uma receita nova. Adicione um insumo sem quantidade para ver o aviso de que ele ainda não
+   entrou na conta. Depois digite "1" em g para a farinha e veja o alerta de unidade.
 7. Tente excluir um insumo usado em receita: o app explica em quais receitas ele está.
 
 ## Como o cálculo funciona
@@ -145,11 +148,36 @@ não depende de Express nem de Prisma.
 1. Tudo é convertido para a unidade base: g, ml ou un (kg e L são multiplicados por 1000).
    Massa e volume não se misturam: usar ml em um insumo comprado em kg é erro.
 2. **Custo por unidade base** = preço da embalagem ÷ (quantidade da embalagem × aproveitamento).
-3. **Custo do item** = quantidade usada × custo por unidade base.
-4. **Custo total** = soma dos itens × (1 + custos extras).
-5. **Custo por porção** = custo total ÷ rendimento.
-6. **Preço sugerido** = custo por porção ÷ (1 − margem). É margem sobre o preço de venda, não
-   markup, e vai de 0% a 95%.
+3. **Custo do item** = quantidade usada × custo por unidade base. A quantidade é a já limpa: a perda
+   está no aproveitamento. Com medida caseira, a quantidade é o número de medidas × o valor da medida.
+4. **Mão de obra** = minutos de trabalho ÷ 60 × valor da hora.
+5. **Custo total** = soma dos itens × (1 + custos extras) + mão de obra.
+6. **Custo por porção** = custo total ÷ rendimento.
+7. **Preço sugerido** = custo por porção ÷ (1 − margem − taxa de venda). É margem sobre o preço de
+   venda, não markup. Margem mais taxa vai até 95%.
+8. **Lucro** = preço − taxa de venda − custo por porção.
+
+### Medidas caseiras
+
+Uma colher de sopa de manteiga aparece nas tabelas com pesos de 12 a 20 g, porque depende do
+ingrediente e de como se enche a colher. Por isso o app não adivinha: cada insumo guarda as próprias
+medidas ("colher de sopa = 20 g"), informadas por quem usa, de preferência pesando uma vez. Não há
+conversão por densidade. Corrigir o valor recalcula todas as receitas que usam a medida. Em insumos
+vendidos em volume, colher e xícara já vêm preenchidas com 15, 5 e 240 ml.
+
+### Avisos de que o custo pode estar errado
+
+Não impedem de salvar, mas aparecem na ficha técnica:
+
+| Aviso | Quando aparece |
+| --- | --- |
+| Tempo de trabalho fora do custo | a receita não tem tempo ou valor da hora: o lucro ainda inclui o pagamento de quem faz |
+| Insumo sem preço | o preço da embalagem é zero |
+| Custo abaixo de 1 centavo | em geral é "2" em g quando a pessoa pensou em kg |
+| Mais de 20 embalagens | em geral é kg quando a pessoa pensou em g |
+| Preço antigo | o insumo não é salvo há mais de 60 dias |
+| Insumo fora da conta | durante a edição, item sem quantidade ainda não entra no total |
+| Quantidade esquecida | ao trocar a unidade de um insumo sem mudar a quantidade da embalagem |
 
 Cuidados com dinheiro:
 
@@ -157,6 +185,8 @@ Cuidados com dinheiro:
 - Na API, todas as contas usam decimal.js com precisão completa.
 - O arredondamento para centavos acontece uma única vez, na resposta da API. O app só formata em
   reais. Por isso a soma dos itens arredondados pode diferir do total em R$ 0,01.
+- A exceção é o preço sugerido, que é um valor real de venda: ele sobe para o centavo seguinte,
+  para nunca entregar menos que a margem pedida.
 - Os custos nunca são salvos: são recalculados a cada leitura, então mudar o preço de um insumo
   atualiza todas as receitas que o usam.
 
@@ -173,14 +203,14 @@ outra pessoa responde 404.
 | `POST /auth/login` | entra (`email`, `senha`) e devolve `{ token, user }` |
 | `GET /auth/me` | devolve o usuário dono do token |
 | `GET /insumos` | lista os insumos |
-| `POST /insumos` | cria um insumo |
+| `POST /insumos` | cria um insumo, com as medidas caseiras no mesmo corpo |
 | `GET /insumos/:id` | devolve um insumo |
-| `PUT /insumos/:id` | atualiza um insumo |
+| `PUT /insumos/:id` | atualiza um insumo; responde 409 ao remover medida usada em receita |
 | `DELETE /insumos/:id` | exclui; responde 409 com a lista de receitas se o insumo estiver em uso |
-| `GET /receitas` | lista as receitas com custo por porção e preço sugerido |
+| `GET /receitas` | lista as receitas com custo por porção, preço sugerido e resultado do preço cobrado |
 | `POST /receitas` | cria a receita, com os itens no mesmo corpo |
 | `POST /receitas/calcular` | calcula uma receita ainda não salva (usada pelo cálculo em tempo real) |
-| `GET /receitas/:id` | devolve a receita com o custo de cada item e o cálculo completo |
+| `GET /receitas/:id` | devolve a receita com o custo de cada item, o cálculo completo e os alertas |
 | `PUT /receitas/:id` | atualiza a receita e substitui os itens |
 | `DELETE /receitas/:id` | exclui a receita e seus itens |
 
