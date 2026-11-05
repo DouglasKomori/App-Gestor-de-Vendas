@@ -1,7 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ScrollViewInstance,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AvisoDeErro } from '@/components/aviso-de-erro';
@@ -52,7 +59,7 @@ export function FormularioDeInsumo({
 
   // Guardado como objeto para o efeito abaixo disparar mesmo quando o texto se repete.
   const [erroGeral, setErroGeral] = useState<{ mensagem: string } | null>(null);
-  const rolagem = useRef<ScrollView>(null);
+  const rolagem = useRef<ScrollViewInstance>(null);
   const margens = useSafeAreaInsets();
 
   // O aviso fica no topo: rola até ele, para a falha nunca ficar fora da tela.

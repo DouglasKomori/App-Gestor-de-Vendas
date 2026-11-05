@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type ScrollViewInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -62,7 +63,7 @@ export function FormularioDeReceita({
   // Guardado como objeto para o efeito abaixo disparar mesmo quando o texto se repete.
   const [erroGeral, setErroGeral] = useState<{ mensagem: string } | null>(null);
   const [escolhendoInsumo, setEscolhendoInsumo] = useState(false);
-  const rolagem = useRef<ScrollView>(null);
+  const rolagem = useRef<ScrollViewInstance>(null);
   const margens = useSafeAreaInsets();
 
   // O aviso fica no topo: rola até ele, para a falha nunca ficar fora da tela.

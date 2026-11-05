@@ -79,7 +79,7 @@ export default function Login() {
             autoComplete="current-password"
             textContentType="password"
             returnKeyType="go"
-            onSubmitEditing={enviar}
+            onSubmitEditing={() => enviar()}
           />
         )}
       />

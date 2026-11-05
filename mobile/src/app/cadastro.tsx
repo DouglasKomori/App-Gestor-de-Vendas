@@ -107,7 +107,7 @@ export default function Cadastro() {
             autoComplete="new-password"
             textContentType="newPassword"
             returnKeyType="go"
-            onSubmitEditing={enviar}
+            onSubmitEditing={() => enviar()}
           />
         )}
       />

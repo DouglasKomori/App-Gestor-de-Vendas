@@ -14,7 +14,7 @@ Projeto acadêmico.
 
 | Parte | Tecnologias |
 | --- | --- |
-| App | React Native, Expo SDK 57, TypeScript, Expo Router, TanStack Query, React Hook Form, Zod |
+| App | React Native, Expo SDK 58, TypeScript, Expo Router, TanStack Query, React Hook Form, Zod |
 | API | Node.js, Express 5, TypeScript, Prisma 7, Zod, JWT, bcrypt, decimal.js |
 | Banco | MySQL 8 (Docker Compose) |
 | Testes | Vitest e Supertest |
@@ -224,7 +224,7 @@ npm test
 | A API não sobe e reclama de variáveis de ambiente | Falta o arquivo `api/.env` ou o `JWT_SECRET` tem menos de 32 caracteres. |
 | A API responde "não conseguiu conectar ao banco de dados" | O Docker Desktop está aberto? Rode `docker compose ps` e confira se o MySQL está `healthy`. |
 | `docker compose up` reclama da porta 3306 | Já existe um MySQL instalado na máquina usando a porta. Pare esse serviço ou troque a porta no `docker-compose.yml` e em `api/.env`. |
-| O Expo Go diz que o projeto é incompatível | Atualize o Expo Go na loja. O projeto usa o SDK 57. |
+| O Expo Go diz que o projeto é incompatível | Atualize o Expo Go na loja: ele só roda projetos da mesma versão do SDK que ele suporta (hoje, SDK 58). |
 | O QR code não abre o app | Rode `npx expo start --tunnel`, que funciona mesmo quando a rede bloqueia a conexão direta. |
 | `npm run typecheck` no `mobile/` acusa uma rota que existe | Os tipos das rotas são gerados pelo `npx expo start`. Pare e inicie o Expo de novo para regenerá-los. |
 
