@@ -10,9 +10,14 @@ const APARENCIA = {
   NA_META: { fundo: cores.sucessoFundo, texto: cores.sucesso },
 } as const;
 
+/** Valor sem sinal. Um prejuízo real pode arredondar para zero, e "R$ 0,00" pareceria engano. */
+function valorDoResultado(valor: string): string {
+  return valor === '0.00' ? 'menos de 1 centavo' : formatarMoeda(valor.replace('-', ''));
+}
+
 /** Frase curta sobre o preço cobrado hoje, usada também na lista de receitas. */
 export function resumoDoPreco({ situacao, lucroPorPorcao }: ResultadoPraticado): string {
-  const valor = formatarMoeda(lucroPorPorcao.replace('-', ''));
+  const valor = valorDoResultado(lucroPorPorcao);
   if (situacao === 'PREJUIZO') {
     return `Prejuízo de ${valor} por porção`;
   }
@@ -24,7 +29,7 @@ export function resumoDoPreco({ situacao, lucroPorPorcao }: ResultadoPraticado):
 /** Mostra o que realmente sobra com o preço que a pessoa cobra hoje. */
 export function ResultadoDoPreco({ praticado }: { praticado: ResultadoPraticado }) {
   const aparencia = APARENCIA[praticado.situacao];
-  const naReceita = formatarMoeda(praticado.lucroPorReceita.replace('-', ''));
+  const naReceita = valorDoResultado(praticado.lucroPorReceita);
 
   return (
     <View style={[styles.container, { backgroundColor: aparencia.fundo }]}>

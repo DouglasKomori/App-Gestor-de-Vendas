@@ -18,6 +18,7 @@ import { Botao } from '@/components/botao';
 import { CampoTexto } from '@/components/campo-texto';
 import { SeletorDeUnidade } from '@/components/seletor-de-unidade';
 import { cores } from '@/constants/tema';
+import { ApiError } from '@/lib/api';
 import { CONFIRA_OS_CAMPOS, distribuirErroDaApi } from '@/lib/erros-de-formulario';
 import {
   ROTULO_UNIDADE,
@@ -31,6 +32,8 @@ import { insumoSchema, type CamposDoInsumo, type DadosDoInsumo } from '@/schemas
 /** Caminhos em que o formulário sabe mostrar um erro vindo da API. */
 const CAMPO_COM_ERRO_VISIVEL =
   /^(nome|unidadeCompra|quantidadeEmbalagem|precoEmbalagem|aproveitamentoPercentual|medidas\.\d+\.(nome|quantidade|unidade))$/;
+
+const MAXIMO_DE_MEDIDAS = 10;
 
 /** Medidas padronizadas em volume; em massa, o peso depende do ingrediente e fica em branco. */
 const SUGESTOES_DE_MEDIDA = [
@@ -107,7 +110,9 @@ export function FormularioDeInsumo({
     aoMudar(nova);
     getValues('medidas').forEach((medida, indice) => {
       if (!unidadesCompativeis(nova).includes(medida.unidade)) {
+        // "20 g" não vira "20 ml": o valor deixa de valer, e a pessoa precisa informar de novo.
         setValue(`medidas.${indice}.unidade`, unidadePadraoNaReceita(nova));
+        setValue(`medidas.${indice}.quantidade`, '');
       }
     });
   }
@@ -122,6 +127,13 @@ export function FormularioDeInsumo({
       try {
         await onSalvar(dados);
       } catch (erro) {
+        if (erro instanceof ApiError && erro.code === 'MEDIDA_EM_USO') {
+          // Sem isso a pessoa não teria como salvar: a medida removida continuaria faltando.
+          const presentes = new Set(getValues('medidas').map(({ id }) => id));
+          medidas.append(valoresIniciais.medidas.filter(({ id }) => !presentes.has(id)));
+          avisar(`${erro.message} A medida voltou para a lista.`);
+          return;
+        }
         avisar(distribuirErroDaApi(erro, setError, (campo) => CAMPO_COM_ERRO_VISIVEL.test(campo)) ?? CONFIRA_OS_CAMPOS);
       }
     },
@@ -290,18 +302,26 @@ export function FormularioDeInsumo({
             </View>
           ))}
 
-          {unidade !== 'UN' &&
-            SUGESTOES_DE_MEDIDA.filter(({ nome }) => !nomesDasMedidas.includes(nome)).map(
-              ({ nome, ml }) => (
-                <Botao
-                  key={nome}
-                  titulo={`+ ${nome}`}
-                  variante="secundario"
-                  onPress={() => adicionarMedida(nome, medidaEmVolume ? ml : '')}
-                />
-              ),
-            )}
-          <Botao titulo="+ Outra medida" variante="secundario" onPress={() => adicionarMedida('', '')} />
+          {medidas.fields.length < MAXIMO_DE_MEDIDAS && (
+            <>
+              {unidade !== 'UN' &&
+                SUGESTOES_DE_MEDIDA.filter(({ nome }) => !nomesDasMedidas.includes(nome)).map(
+                  ({ nome, ml }) => (
+                    <Botao
+                      key={nome}
+                      titulo={`+ ${nome}`}
+                      variante="secundario"
+                      onPress={() => adicionarMedida(nome, medidaEmVolume ? ml : '')}
+                    />
+                  ),
+                )}
+              <Botao
+                titulo="+ Outra medida"
+                variante="secundario"
+                onPress={() => adicionarMedida('', '')}
+              />
+            </>
+          )}
         </View>
 
         <View style={styles.botoes}>

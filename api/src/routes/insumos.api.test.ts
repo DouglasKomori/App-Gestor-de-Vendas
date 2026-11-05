@@ -482,6 +482,53 @@ describe('medidas caseiras', () => {
     ]);
   });
 
+  it('aceita remover uma medida e criar outra com o mesmo nome na mesma edição', async () => {
+    const usuario = await criarUsuario();
+    const criado = await criarManteiga(usuario);
+
+    const resposta = await request(app)
+      .put(`/insumos/${criado.body.insumo.id}`)
+      .set(usuario.auth)
+      .send({
+        nome: 'Manteiga',
+        unidadeCompra: 'G',
+        quantidadeEmbalagem: '200',
+        precoEmbalagem: '10',
+        medidas: [{ ...colher, quantidade: '14' }],
+      });
+
+    expect(resposta.status).toBe(200);
+    expect(resposta.body.insumo.medidas).toEqual([
+      { id: expect.any(Number), nome: 'Colher de sopa', quantidade: '14', unidade: 'G' },
+    ]);
+  });
+
+  it('explica o problema ao trocar o nome de duas medidas entre si, sem alterar nada', async () => {
+    const usuario = await criarUsuario();
+    const criado = await criarManteiga(usuario, [colher, { ...colher, nome: 'Colher de chá', quantidade: '5' }]);
+    const [sopa, cha] = criado.body.insumo.medidas;
+
+    const resposta = await request(app)
+      .put(`/insumos/${criado.body.insumo.id}`)
+      .set(usuario.auth)
+      .send({
+        nome: 'Manteiga',
+        unidadeCompra: 'G',
+        quantidadeEmbalagem: '200',
+        precoEmbalagem: '10',
+        medidas: [
+          { ...sopa, nome: cha.nome },
+          { ...cha, nome: sopa.nome },
+        ],
+      });
+
+    expect(resposta.status).toBe(409);
+    expect(resposta.body.error.code).toBe('NOME_DE_MEDIDA_EM_USO');
+
+    const salvo = await request(app).get(`/insumos/${criado.body.insumo.id}`).set(usuario.auth);
+    expect(salvo.body.insumo.medidas).toEqual(criado.body.insumo.medidas);
+  });
+
   it('não deixa remover medida usada em receita', async () => {
     const usuario = await criarUsuario();
     const criado = await criarManteiga(usuario);

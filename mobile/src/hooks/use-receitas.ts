@@ -103,7 +103,8 @@ export function useCalculoAoVivo(campos: CamposEmEdicao) {
 
   return {
     /** `null` enquanto os campos gerais da receita não estiverem preenchidos. */
-    resultado: pedido === null ? null : (consulta.data ?? null),
+    // Com erro, o último cálculo já pode estar velho: melhor mostrar a falha do que um custo antigo.
+    resultado: pedido === null || consulta.isError ? null : (consulta.data ?? null),
     /** Itens que ainda não entram na conta, por estarem sem quantidade válida. */
     itensDeFora: preparado ? (campos.itens?.length ?? 0) - preparado.indices.length : 0,
     calculando: pedido !== null && (pedido !== pedidoComAtraso || consulta.isFetching),

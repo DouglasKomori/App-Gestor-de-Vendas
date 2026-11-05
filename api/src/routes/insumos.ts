@@ -2,7 +2,7 @@ import { Router, type Request } from 'express';
 import { z } from 'zod';
 
 import { saoCompativeis } from '../domain/pricing';
-import type { Insumo, MedidaCaseira } from '../generated/prisma/client';
+import { Prisma, type Insumo, type MedidaCaseira } from '../generated/prisma/client';
 import { autenticar, userIdAutenticado } from '../http/autenticar';
 import { AppError } from '../http/errors';
 import { decimalSchema, lerId, unidadeSchema } from '../http/validacao';
@@ -216,15 +216,29 @@ insumosRouter.put('/insumos/:id', async (req, res) => {
   // Medidas de massa não servem para um insumo que passou a ser medido em volume.
   const novasMedidas = medidas ?? (mudouTipoDeUnidade ? [] : undefined);
 
-  const insumo = await prisma.insumo.update({
-    where: { id: atual.id },
-    data: {
-      ...dados,
-      medidas: novasMedidas && (await sincronizarMedidas(atual, novasMedidas)),
-    },
-    include: comMedidas,
-  });
-  res.json({ insumo: paraJson(insumo) });
+  const data = {
+    ...dados,
+    medidas: novasMedidas && (await sincronizarMedidas(atual, novasMedidas)),
+  };
+
+  try {
+    const insumo = await prisma.insumo.update({
+      where: { id: atual.id },
+      data,
+      include: comMedidas,
+    });
+    res.json({ insumo: paraJson(insumo) });
+  } catch (error) {
+    // Duas medidas trocando de nome entre si: a primeira esbarra no nome que a outra ainda tem.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new AppError(
+        409,
+        'NOME_DE_MEDIDA_EM_USO',
+        'Duas medidas ficaram com o mesmo nome durante a troca. Renomeie uma de cada vez.',
+      );
+    }
+    throw error;
+  }
 });
 
 insumosRouter.delete('/insumos/:id', async (req, res) => {

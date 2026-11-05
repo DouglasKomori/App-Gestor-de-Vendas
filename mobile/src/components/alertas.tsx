@@ -18,7 +18,7 @@ export function ListaDeAlertas({ mensagens }: { mensagens: string[] }) {
 
   return (
     <View style={styles.lista}>
-      {mensagens.map((mensagem) => (
+      {[...new Set(mensagens)].map((mensagem) => (
         <AvisoDeAtencao key={mensagem} mensagem={mensagem} />
       ))}
     </View>

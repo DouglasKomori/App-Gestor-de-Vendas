@@ -18,6 +18,11 @@ function lerDecimal(texto: string, { positivo = false, maximo, casas }: LimitesD
     return { erro: 'Digite apenas números, como 5,49.' };
   }
 
+  // No Brasil, "1.500" costuma ser mil e quinhentos; lido como 1,5 o custo sairia mil vezes menor.
+  if (/^[1-9]\d{0,2}\.\d{3}$/.test(texto)) {
+    return { erro: 'Não use ponto de milhar: escreva 1500, ou 1,5 se for decimal.' };
+  }
+
   const normalizado = texto.replace(',', '.');
   const decimais = normalizado.split('.')[1] ?? '';
   if (decimais.length > casas) {
