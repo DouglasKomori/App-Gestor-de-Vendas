@@ -243,7 +243,7 @@ export function FormularioDeInsumo({
             Para usar colher, xícara ou &quot;1 cebola&quot; nas receitas.
             {medidaEmVolume
               ? ' Colher e xícara têm volume padrão, já preenchido.'
-              : ' Coloque a medida numa balança uma vez e anote o peso: as tabelas divergem (1 colher de sopa de manteiga aparece de 12 a 20 g). Sem balança, use o maior valor.'}
+              : ' Coloque a medida numa balança uma vez e anote o peso: as tabelas divergem (1 colher de sopa de açúcar aparece de 12 a 20 g). Sem balança, use o maior valor.'}
           </Text>
 
           {medidas.fields.map((campo, indice) => (

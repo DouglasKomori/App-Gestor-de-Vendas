@@ -159,7 +159,7 @@ não depende de Express nem de Prisma.
 
 ### Medidas caseiras
 
-Uma colher de sopa de manteiga aparece nas tabelas com pesos de 12 a 20 g, porque depende do
+Uma colher de sopa de açúcar aparece nas tabelas com pesos de 12 a 20 g, porque depende do
 ingrediente e de como se enche a colher. Por isso o app não adivinha: cada insumo guarda as próprias
 medidas ("colher de sopa = 20 g"), informadas por quem usa, de preferência pesando uma vez. Não há
 conversão por densidade. Corrigir o valor recalcula todas as receitas que usam a medida. Em insumos
