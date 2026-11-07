@@ -42,7 +42,38 @@ docker-compose.yml      MySQL 8
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) aberto e rodando
 - No celular: o app **Expo Go** (Play Store ou App Store), na mesma rede Wi-Fi do computador
 
-O app foi feito para Android e iOS. A versão web não é suportada.
+O app foi feito para Android e iOS. Também roda no navegador, o que é usado na apresentação abaixo.
+
+## Rodar só com o Docker (apresentação)
+
+Para mostrar o projeto em um computador que só tem Docker (sem Node, sem celular, sem Wi-Fi),
+o `docker-compose.apresentacao.yml` sobe o banco, a API e a versão web do app de uma vez:
+
+```bash
+git clone <endereço-do-repositório>
+cd <pasta-do-repositório>
+docker compose -f docker-compose.apresentacao.yml up --build
+```
+
+No Windows, dá para dar dois cliques no `apresentacao.bat`, que roda o mesmo comando.
+
+Quando aparecer `API rodando` no terminal, abra **http://localhost:8080** e entre com a
+[conta de demonstração](#conta-de-demonstração). O banco é criado do zero e a conta de demonstração
+é recriada toda vez que sobe. A primeira vez demora alguns minutos, porque baixa as imagens e as
+dependências. Para parar, use `Ctrl+C`.
+
+### No celular, pelo cabo USB
+
+Para usar o app no celular (Expo Go) sem depender da rede do lugar, o celular fala com o PC pelo
+cabo USB, com o `adb` que vem no Android Studio. Precisa de Node.js no PC.
+
+1. No celular, ative as **Opções do desenvolvedor** (toque 7 vezes em "Número da versão", em
+   Configurações > Sobre o telefone) e, dentro delas, a **Depuração USB**.
+2. Deixe o `apresentacao.bat` rodando (banco e API).
+3. Ligue o celular no USB, aceite o aviso de depuração na tela dele e rode o `celular-usb.bat`.
+
+O script faz o `localhost` do celular apontar para o PC (`adb reverse` das portas 8081 e 3333) e
+abre o app no Expo Go. Funciona igual com um emulador do Android Studio aberto, no lugar do celular.
 
 ## Como rodar
 

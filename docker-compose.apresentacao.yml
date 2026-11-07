@@ -1,0 +1,45 @@
+# Sobe o projeto inteiro (banco, API e app no navegador) com um comando só:
+#
+#   docker compose -f docker-compose.apresentacao.yml up --build
+#
+# Depois abra http://localhost:8080 no navegador.
+# Só precisa do Docker: não precisa de Node, de celular nem de Wi-Fi.
+
+# Nome separado para não misturar com o docker-compose.yml do desenvolvimento.
+name: gestor-vendas-apresentacao
+
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: gestor_vendas
+    # Sem "ports": o banco só é acessado pela API, dentro do Docker.
+    # Assim não dá conflito se o PC já tiver um MySQL na porta 3306.
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL: mysql://root:root@mysql:3306/gestor_vendas
+      PORT: 3333
+      HOST: 0.0.0.0
+      # Segredo só para a apresentação (o banco é criado do zero e apagado depois).
+      JWT_SECRET: segredo-somente-para-a-apresentacao-do-projeto
+    ports:
+      # Para o app no celular (Expo Go), via cabo USB com o celular-usb.bat.
+      - "3333:3333"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  web:
+    build: ./mobile
+    ports:
+      - "8080:80"
+    depends_on:
+      - api

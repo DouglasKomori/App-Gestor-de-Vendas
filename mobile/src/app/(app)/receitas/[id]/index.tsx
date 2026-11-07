@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ListaDeAlertas } from '@/components/alertas';
@@ -9,6 +9,7 @@ import { ResultadoDoPreco } from '@/components/resultado-do-preco';
 import { ResumoDoCalculo } from '@/components/resumo-do-calculo';
 import { cores } from '@/constants/tema';
 import { useExcluirReceita, useReceita } from '@/hooks/use-receitas';
+import { avisar, confirmarAcao } from '@/lib/dialogos';
 import { formatarDecimal, formatarMoeda, formatarPercentual } from '@/lib/formato';
 import { ROTULO_UNIDADE } from '@/lib/unidades';
 
@@ -39,18 +40,12 @@ export default function DetalheDaReceita() {
   const porcoes = rendimentoPorcoes === 1 ? '1 porção' : `${rendimentoPorcoes} porções`;
 
   function confirmarExclusao() {
-    Alert.alert('Excluir receita', `Excluir "${nome}"? Essa ação não pode ser desfeita.`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: () =>
-          excluir.mutate(undefined, {
-            onSuccess: () => router.back(),
-            onError: (erro) => Alert.alert('Não foi possível excluir', erro.message),
-          }),
-      },
-    ]);
+    confirmarAcao('Excluir receita', `Excluir "${nome}"? Essa ação não pode ser desfeita.`, 'Excluir', () =>
+      excluir.mutate(undefined, {
+        onSuccess: () => router.back(),
+        onError: (erro) => avisar('Não foi possível excluir', erro.message),
+      }),
+    );
   }
 
   return (

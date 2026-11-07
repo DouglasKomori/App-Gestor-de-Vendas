@@ -1,9 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Alert } from 'react-native';
 
 import { Carregando, MensagemDeTela } from '@/components/estado-de-tela';
 import { FormularioDeInsumo } from '@/components/formulario-de-insumo';
 import { useAtualizarInsumo, useExcluirInsumo, useInsumo } from '@/hooks/use-insumos';
+import { avisar, confirmarAcao } from '@/lib/dialogos';
 import { formatarDecimal } from '@/lib/formato';
 
 export default function EditarInsumo() {
@@ -37,19 +37,13 @@ export default function EditarInsumo() {
   } = insumo.data;
 
   function confirmarExclusao() {
-    Alert.alert('Excluir insumo', `Excluir "${nome}"? Essa ação não pode ser desfeita.`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: () =>
-          excluir.mutate(undefined, {
-            onSuccess: () => router.back(),
-            // Ex.: insumo usado em receitas. A API explica quais.
-            onError: (erro) => Alert.alert('Não foi possível excluir', erro.message),
-          }),
-      },
-    ]);
+    confirmarAcao('Excluir insumo', `Excluir "${nome}"? Essa ação não pode ser desfeita.`, 'Excluir', () =>
+      excluir.mutate(undefined, {
+        onSuccess: () => router.back(),
+        // Ex.: insumo usado em receitas. A API explica quais.
+        onError: (erro) => avisar('Não foi possível excluir', erro.message),
+      }),
+    );
   }
 
   return (
