@@ -27,12 +27,32 @@ rem "localhost" no celular passa a ser o PC: 8081 = Expo, 3333 = API.
 "%ADB%" reverse tcp:8081 tcp:8081
 "%ADB%" reverse tcp:3333 tcp:3333
 
-if not exist node_modules (
-  echo Instalando dependencias do app, a primeira vez demora...
-  call npm install
+where node >nul 2>nul
+if errorlevel 1 (
+  echo Nao encontrei o Node.js neste PC. Use o kit do pendrive ^(pendrive\APRESENTACAO.bat^).
+  pause
+  exit /b 1
 )
+
+rem Instala as dependencias do zero se faltarem ou se uma instalacao anterior ficou pela metade.
+if exist node_modules\.bin\expo.cmd goto dependencias_ok
+echo Instalando dependencias do app, a primeira vez demora...
+if exist node_modules rmdir /s /q node_modules
+call npm ci --no-audit --no-fund
+if errorlevel 1 (
+  echo.
+  echo ERRO ao instalar as dependencias ^(provavelmente a internet bloqueou o npm^).
+  echo Use o kit do pendrive ^(pendrive\APRESENTACAO.bat^), que nao precisa de internet.
+  if exist node_modules rmdir /s /q node_modules
+  pause
+  exit /b 1
+)
+:dependencias_ok
 
 rem Vale so para esta janela: o mobile\.env (IP do Wi-Fi de casa) fica como esta.
 set "EXPO_PUBLIC_API_URL=http://localhost:3333"
-call npx expo start --localhost --android
+set "EXPO_NO_TELEMETRY=1"
+rem EXPO_OFFLINE: o Expo nao tenta acessar a internet (redes bloqueadas travam nisso).
+set "EXPO_OFFLINE=1"
+call node_modules\.bin\expo.cmd start --localhost --android
 pause

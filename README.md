@@ -75,6 +75,24 @@ cabo USB, com o `adb` que vem no Android Studio. Precisa de Node.js no PC.
 O script faz o `localhost` do celular apontar para o PC (`adb reverse` das portas 8081 e 3333) e
 abre o app no Expo Go. Funciona igual com um emulador do Android Studio aberto, no lugar do celular.
 
+### Sem internet: kit no pendrive
+
+Se a rede do lugar bloquear o npm ou o Docker Hub, ou se o Node de lá for diferente, use o kit.
+Ele leva o Node, as dependências do app já instaladas e as imagens do Docker, então nada é baixado.
+
+Em casa, com o Docker Desktop aberto:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File pendrive\preparar-pendrive.ps1
+```
+
+Isso cria a pasta `kit-apresentacao` na Área de Trabalho com três arquivos: `APRESENTACAO.bat`,
+`gestor-vendas.zip` e `imagens-docker.tar`. Copie os três para o pendrive.
+
+No outro PC: abra o Docker Desktop, ligue o celular no USB (com a Depuração USB) e dê dois cliques
+no `APRESENTACAO.bat` do pendrive. Ele copia o projeto para `%USERPROFILE%\gv`, carrega as
+imagens, sobe o banco e a API e abre o app no Expo Go, sem acessar a internet.
+
 ## Como rodar
 
 Use três terminais, todos a partir da pasta raiz do projeto.
