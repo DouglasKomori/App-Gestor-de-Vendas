@@ -3,7 +3,6 @@
 #   docker compose -f docker-compose.apresentacao.yml up --build
 #
 # Depois abra http://localhost:8080 no navegador.
-# Só precisa do Docker: não precisa de Node, de celular nem de Wi-Fi.
 
 # Nome separado para não misturar com o docker-compose.yml do desenvolvimento.
 name: gestor-vendas-apresentacao
@@ -31,7 +30,7 @@ services:
       # Segredo só para a apresentação (o banco é criado do zero e apagado depois).
       JWT_SECRET: segredo-somente-para-a-apresentacao-do-projeto
     ports:
-      # Para o app no celular (Expo Go), via cabo USB com o celular-usb.bat.
+      # Para o app no emulador (Expo Go), via adb reverse no apresentacao.bat.
       - "3333:3333"
     depends_on:
       mysql:

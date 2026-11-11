@@ -44,54 +44,39 @@ docker-compose.yml      MySQL 8
 
 O app foi feito para Android e iOS. Também roda no navegador, o que é usado na apresentação abaixo.
 
-## Rodar só com o Docker (apresentação)
+## Apresentação: dois cliques num PC com Docker e Android Studio
 
-Para mostrar o projeto em um computador que só tem Docker (sem Node, sem celular, sem Wi-Fi),
-o `docker-compose.apresentacao.yml` sobe o banco, a API e a versão web do app de uma vez:
+Para mostrar o app rodando no emulador do Android Studio em outro computador, sem instalar nada
+pelo npm nem pelo Docker Hub (redes de faculdade costumam bloquear):
 
-```bash
-git clone <endereço-do-repositório>
-cd <pasta-do-repositório>
-docker compose -f docker-compose.apresentacao.yml up --build
-```
+1. Baixe o projeto do GitHub (`git clone` ou **Code > Download ZIP**, e descompacte).
+2. Dê dois cliques no **`apresentacao.bat`**.
 
-No Windows, dá para dar dois cliques no `apresentacao.bat`, que roda o mesmo comando.
+Ele faz o resto e mostra o andamento de 1 a 6:
 
-Quando aparecer `API rodando` no terminal, abra **http://localhost:8080** e entre com a
-[conta de demonstração](#conta-de-demonstração). O banco é criado do zero e a conta de demonstração
-é recriada toda vez que sobe. A primeira vez demora alguns minutos, porque baixa as imagens e as
-dependências. Para parar, use `Ctrl+C`.
+- baixa o kit do [release "kit"](https://github.com/DouglasKomori/App-Gestor-de-Vendas/releases/tag/kit)
+  (projeto com dependências já instaladas, Node, imagens do Docker e Expo Go) e o descompacta em
+  `%USERPROFILE%\gv`;
+- abre o Docker Desktop se estiver fechado, carrega as imagens e sobe o banco, a API e a versão web;
+- liga o primeiro aparelho virtual do Android Studio, instala o Expo Go nele e abre o app.
 
-### No celular, pelo cabo USB
+O PC precisa ter um aparelho virtual criado no Android Studio (**Device Manager > + > Create
+Virtual Device**). Entre com a [conta de demonstração](#conta-de-demonstração): o banco é criado do
+zero, e a conta é recriada toda vez que sobe. Plano B: o app também abre no navegador em
+**http://localhost:8080**.
 
-Para usar o app no celular (Expo Go) sem depender da rede do lugar, o celular fala com o PC pelo
-cabo USB, com o `adb` que vem no Android Studio. Precisa de Node.js no PC.
+Na primeira vez, ele baixa cerca de 1 GB do GitHub. Nas próximas, no mesmo PC, sobe em segundos.
 
-1. No celular, ative as **Opções do desenvolvedor** (toque 7 vezes em "Número da versão", em
-   Configurações > Sobre o telefone) e, dentro delas, a **Depuração USB**.
-2. Deixe o `apresentacao.bat` rodando (banco e API).
-3. Ligue o celular no USB, aceite o aviso de depuração na tela dele e rode o `celular-usb.bat`.
+### Atualizar o kit
 
-O script faz o `localhost` do celular apontar para o PC (`adb reverse` das portas 8081 e 3333) e
-abre o app no Expo Go. Funciona igual com um emulador do Android Studio aberto, no lugar do celular.
-
-### Sem internet: kit no pendrive
-
-Se a rede do lugar bloquear o npm ou o Docker Hub, ou se o Node de lá for diferente, use o kit.
-Ele leva o Node, as dependências do app já instaladas e as imagens do Docker, então nada é baixado.
-
-Em casa, com o Docker Desktop aberto:
+O kit é uma cópia do código. Depois de mudar o app ou a API, gere e publique de novo (com o Docker
+Desktop aberto e o `gh` logado):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File pendrive\preparar-pendrive.ps1
+powershell -ExecutionPolicy Bypass -File kit\preparar-kit.ps1 -Publicar
 ```
 
-Isso cria a pasta `kit-apresentacao` na Área de Trabalho com três arquivos: `APRESENTACAO.bat`,
-`gestor-vendas.zip` e `imagens-docker.tar`. Copie os três para o pendrive.
-
-No outro PC: abra o Docker Desktop, ligue o celular no USB (com a Depuração USB) e dê dois cliques
-no `APRESENTACAO.bat` do pendrive. Ele copia o projeto para `%USERPROFILE%\gv`, carrega as
-imagens, sobe o banco e a API e abre o app no Expo Go, sem acessar a internet.
+No outro PC, apague a pasta `%USERPROFILE%\gv` para ele baixar o kit novo.
 
 ## Como rodar
 
