@@ -85,7 +85,8 @@ $arquivos = 'gestor-vendas.zip', 'imagens-docker.tar', 'expo-go.apk' | ForEach-O
 if ($Publicar) {
     Passo 'Enviando para o release "kit" do GitHub (depende da sua internet)'
     Push-Location $app
-    gh release view kit *> $null
+    # Via cmd: no PowerShell 5.1, o aviso "release not found" do gh viraria um erro fatal aqui.
+    cmd /c 'gh release view kit >nul 2>&1'
     if ($LASTEXITCODE -ne 0) {
         gh release create kit --title 'Kit da apresentação' `
             --notes 'Arquivos baixados pelo apresentacao.bat. Gerados por kit/preparar-kit.ps1.'
