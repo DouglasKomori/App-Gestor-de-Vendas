@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 
 import { cores } from '@/constants/tema';

@@ -18,15 +18,30 @@ set "RELEASE=https://github.com/DouglasKomori/App-Gestor-de-Vendas/releases/down
 if not exist "%PASTA%" mkdir "%PASTA%"
 
 rem ---- 1. Projeto pronto (com dependencias e Node) ---------------------------
-if exist "%PROJETO%\mobile\node_modules\.bin\expo.cmd" goto docker
-echo [1/6] Preparando o projeto (so na primeira vez)...
+echo [1/6] Conferindo o projeto...
 call :pegar gestor-vendas.zip
 if errorlevel 1 goto falhou
-"%SystemRoot%\System32\tar.exe" -xf "%ARQ%" -C "%PASTA%"
-if errorlevel 1 (
-  echo ERRO ao descompactar o projeto. Confira se ha espaco livre no disco.
-  goto falhou
-)
+set "ZIP=%ARQ%"
+rem Confere arquivo por arquivo: uma copia interrompida deixa arquivos pela metade.
+if exist "%PASTA%\nodejs\node.exe" "%PASTA%\nodejs\node.exe" "%AQUI%kit\verificar-kit.js" "%ZIP%" "%PASTA%" && goto docker
+
+call :extrair
+if errorlevel 1 goto falhou
+"%PASTA%\nodejs\node.exe" "%AQUI%kit\verificar-kit.js" "%ZIP%" "%PASTA%" && goto docker
+
+rem Ainda com problema: o .zip pode ter vindo estragado. Baixa de novo e tenta mais uma vez.
+echo       Baixando o projeto de novo...
+del "%ZIP%" 2>nul
+call :pegar gestor-vendas.zip
+if errorlevel 1 goto falhou
+set "ZIP=%ARQ%"
+call :extrair
+if errorlevel 1 goto falhou
+"%PASTA%\nodejs\node.exe" "%AQUI%kit\verificar-kit.js" "%ZIP%" "%PASTA%" && goto docker
+echo.
+echo ERRO: os arquivos do projeto nao ficam inteiros neste PC. Um antivirus pode estar
+echo bloqueando a pasta %PASTA%. Plano B: veja se o Docker sobe e use o navegador.
+goto falhou
 
 :docker
 rem ---- 2. Docker ------------------------------------------------------------
@@ -153,6 +168,20 @@ echo.
 echo Algo deu errado ^(veja a mensagem acima^). Tire uma foto desta janela.
 pause
 exit /b 1
+
+rem --------------------------------------------------------------------------
+rem  :extrair  -> descompacta o ZIP do zero em PASTA (app + nodejs).
+rem --------------------------------------------------------------------------
+:extrair
+echo       Copiando o projeto para %PASTA% ... ^(1 a 3 minutos, nao feche a janela^)
+if exist "%PROJETO%" rmdir /s /q "%PROJETO%"
+if exist "%PASTA%\nodejs" rmdir /s /q "%PASTA%\nodejs"
+"%SystemRoot%\System32\tar.exe" -xf "%ZIP%" -C "%PASTA%"
+if errorlevel 1 (
+  echo ERRO ao descompactar o projeto. Confira se ha espaco livre no disco.
+  exit /b 1
+)
+exit /b 0
 
 rem --------------------------------------------------------------------------
 rem  :pegar ARQUIVO  -> deixa em ARQ o caminho do arquivo do kit.
