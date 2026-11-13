@@ -18,18 +18,25 @@ set "RELEASE=https://github.com/DouglasKomori/App-Gestor-de-Vendas/releases/down
 if not exist "%PASTA%" mkdir "%PASTA%"
 
 rem ---- 1. Projeto pronto (com dependencias e Node) ---------------------------
-echo [1/6] Conferindo o projeto...
+echo [1/6] Conferindo o projeto... ^(na primeira vez leva alguns minutos, nao feche a janela^)
 call :pegar gestor-vendas.zip
 if errorlevel 1 goto falhou
 set "ZIP=%ARQ%"
-rem Confere arquivo por arquivo: uma copia interrompida deixa arquivos pela metade.
-if exist "%PASTA%\nodejs\node.exe" "%PASTA%\nodejs\node.exe" "%AQUI%kit\verificar-kit.js" "%ZIP%" "%PASTA%" && goto docker
+rem Confere o conteudo de cada arquivo e conserta os estragados direto do .zip.
+if not exist "%PASTA%\nodejs\node.exe" goto extrair_tudo
+call :verificar
+if "%VER%"=="0" goto docker
+if "%VER%"=="2" goto baixar_de_novo
 
+:extrair_tudo
 call :extrair
 if errorlevel 1 goto falhou
-"%PASTA%\nodejs\node.exe" "%AQUI%kit\verificar-kit.js" "%ZIP%" "%PASTA%" && goto docker
+call :verificar
+if "%VER%"=="0" goto docker
+if not "%VER%"=="2" goto pc_estraga
 
-rem Ainda com problema: o .zip pode ter vindo estragado. Baixa de novo e tenta mais uma vez.
+:baixar_de_novo
+rem O proprio .zip veio estragado: baixa de novo e tenta mais uma vez.
 echo       Baixando o projeto de novo...
 del "%ZIP%" 2>nul
 call :pegar gestor-vendas.zip
@@ -37,10 +44,13 @@ if errorlevel 1 goto falhou
 set "ZIP=%ARQ%"
 call :extrair
 if errorlevel 1 goto falhou
-"%PASTA%\nodejs\node.exe" "%AQUI%kit\verificar-kit.js" "%ZIP%" "%PASTA%" && goto docker
+call :verificar
+if "%VER%"=="0" goto docker
+
+:pc_estraga
 echo.
 echo ERRO: os arquivos do projeto nao ficam inteiros neste PC. Um antivirus pode estar
-echo bloqueando a pasta %PASTA%. Plano B: veja se o Docker sobe e use o navegador.
+echo mexendo na pasta %PASTA%. Plano B: o app no navegador, em http://localhost:8080
 goto falhou
 
 :docker
@@ -168,6 +178,14 @@ echo.
 echo Algo deu errado ^(veja a mensagem acima^). Tire uma foto desta janela.
 pause
 exit /b 1
+
+rem --------------------------------------------------------------------------
+rem  :verificar  -> VER = 0 (inteiro), 2 (.zip estragado) ou outro (refazer copia).
+rem --------------------------------------------------------------------------
+:verificar
+"%PASTA%\nodejs\node.exe" "%AQUI%kit\verificar-kit.js" "%ZIP%" "%PASTA%"
+set "VER=%errorlevel%"
+exit /b 0
 
 rem --------------------------------------------------------------------------
 rem  :extrair  -> descompacta o ZIP do zero em PASTA (app + nodejs).
