@@ -173,6 +173,9 @@ O comando pode ser repetido: ele apaga e recria só a conta de demonstração, s
 6. Crie uma receita nova. Adicione um insumo sem quantidade para ver o aviso de que ele ainda não
    entrou na conta. Depois digite "1" em g para a farinha e veja o alerta de unidade.
 7. Tente excluir um insumo usado em receita: o app explica em quais receitas ele está.
+8. Termine na aba **Conta**: o **Resumo do negócio** mostra uma receita em cada situação (prejuízo,
+   abaixo da meta e na meta) e aponta o bolo como a que precisa de atenção. Abra **Como o cálculo
+   funciona** para explicar as fórmulas e por que margem não é markup.
 
 ## Como o cálculo funciona
 
